@@ -4,7 +4,7 @@
     "embedding_dim": 512,
     "num_heads": 8,
     "dropout_rate": 0.1,
-    "max_length": 512,
+    "max_length": 256,
     "latent_dim": 256,
     "batch_size": 48,
     "learning_rate": 0.0001,
