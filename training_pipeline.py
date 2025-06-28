@@ -27,7 +27,6 @@ class Trainer:
     def __init__(self, 
                 student_model,
                 teacher_model,
-                tokenizer, 
                 train_dataset: Dataset,
                 val_dataset: Dataset, 
                 batch_size=32, 
@@ -40,7 +39,6 @@ class Trainer:
         self.teacher_model = teacher_model
         self.model.to(DEVICE1)
         self.teacher_model.to(DEVICE2)
-        self.tokenizer = tokenizer
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
         self.batch_size = batch_size
@@ -60,6 +58,18 @@ class Trainer:
         self.criterion = nn.CrossEntropyLoss()
         self.kl_divergence = nn.KLDivLoss(reduction='batchmean')
         self.scaler = torch.amp.GradScaler()  # For mixed precision training
+
+        print(f"Total tokens in training dataset: {self.total_amount_of_tokens}")
+        print(f"Total tokens in validation dataset: {self.count_number_of_tokens()}")
+        print(f"Model has {sum(p.numel() for p in self.model.parameters()) / 1e6:.2f} M parameters")
+        print(f"Teacher model has {sum(p.numel() for p in self.teacher_model.parameters()) / 1e6:.2f} M parameters")
+        print("Trainer initialized with the following parameters:")
+        print(f"  Batch size: {self.batch_size}")
+        print(f"  Learning rate: {self.learning_rate}")
+        print(f"  Temperature: {self.temperature}")
+        print(f"  Alpha (distillation loss weight): {self.alpha}")
+        print(f"  Beta (cross-entropy loss weight): {self.beta}")
+
 
     def compute_perplexity(self, loss):
         """Compute perplexity from loss"""
@@ -136,6 +146,7 @@ class Trainer:
     
     def train(self, epochs):
         """Train the model for a specified number of epochs"""
+        print(f'Starting training for {epochs} epochs...')
         for epoch in tqdm.tqdm(range(epochs)):
             print(f'Epoch {epoch + 1}/{epochs}')
             train_loss = self.train_one_epoch()
