@@ -203,13 +203,16 @@ class Trainer:
             val_loss = self.validate()
             val_ppl = self.compute_perplexity(torch.tensor(val_loss))
             print(f'Validation Loss: {val_loss:.4f}, Perplexity: {val_ppl:.4f}')
+
             
+            """
             # Check for early stopping
             if val_ppl < self.last_validation_perplexity:
                 self.last_validation_perplexity = val_ppl
                 self.end_training = False
             else:
                 self.end_training = True
+            """
             
             if self.end_training:
                 self.save_model(f'model_epoch_{epoch + 1}.pt')
