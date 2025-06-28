@@ -52,6 +52,7 @@ class Trainer:
         self.current_amount_of_tokens = 0
         self.end_training = False
         self.last_validation_perplexity = float('inf')
+        self.num_epochs = num_epochs
         self.temperature = temperature  # Temperature for distillation
         self.alpha = alpha  # Weight for distillation loss
         self.beta = beta  # Weight for cross-entropy loss
@@ -191,8 +192,9 @@ class Trainer:
         torch.save(self.model.state_dict(), path)
         print(f'Model saved to {path}')
     
-    def train(self, epochs):
+    def train(self):
         """Train the model for a specified number of epochs"""
+        epochs = self.num_epochs
         print(f'Starting training for {epochs} epochs...')
         for epoch in tqdm.tqdm(range(epochs)):
             print(f'Epoch {epoch + 1}/{epochs}')
