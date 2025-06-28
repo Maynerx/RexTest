@@ -19,6 +19,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 import tqdm.auto as tqdm
 import math
+import torch.nn.functional as F
 
 DEVICE1 = 'cuda:0'
 DEVICE2 = 'cuda:1'
