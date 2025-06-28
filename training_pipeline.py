@@ -44,6 +44,7 @@ class Trainer:
         self.teacher_model = teacher_model
         self.model.to(DEVICE1)
         self.teacher_model.to(DEVICE2)
+        self.teacher_model = torch.compile(self.teacher_model, mode="default")
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
         self.batch_size = batch_size
