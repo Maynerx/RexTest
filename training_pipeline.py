@@ -118,8 +118,8 @@ class Trainer:
                 loss_ce = self.criterion(student_logits.view(-1, student_logits.size(-1)), labels.view(-1))
                 log_ps = torch.log_softmax(student_logits / self.temperature, dim=-1)
                 loss_kl = self.kl_divergence(log_ps, teacher_probs.to(DEVICE1)) * self.temperature**2
-                assert not math.isnan(loss_ce), f"CE loss is NaN: {ce_val}"
-                assert not math.isnan(loss_kl), f"KL loss is NaN: {kl_val}"
+                assert not math.isnan(loss_ce), f"CE loss is NaN: {loss_ce.item()}"
+                assert not math.isnan(loss_kl), f"KL loss is NaN: {loss_kl.item()}"
                 loss = self.alpha * loss_ce + self.beta * loss_kl
             self.scaler.scale(loss).backward()
             accumlated_gradients += 1
