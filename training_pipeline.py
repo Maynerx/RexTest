@@ -105,12 +105,12 @@ class Trainer:
         total_loss = 0.0
         count = 0
         accumlated_gradients = 0
+        self.optimizer.zero_grad()
         for batch in self.train_loader:
             ids = batch['input_ids'].to(DEVICE2)
             labels = batch['labels'].to(DEVICE1)
             teacher_probs = self.teacher_predict(ids)
             teacher_probs = teacher_probs.cpu() # Offload to CPU to save GPU memory
-            self.optimizer.zero_grad()
             ids = ids.to(DEVICE1)  # Move ids to the student model's device
             with torch.autocast(device_type='cuda', dtype=torch.float16):
                 latent = self.model.encoder(ids)
@@ -130,6 +130,7 @@ class Trainer:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)  # Gradient clipping
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
+                self.optimizer.zero_grad()
             
             
             if self.current_amount_of_tokens % self.total_amount_of_tokens // 10 == 0:
@@ -142,7 +143,7 @@ class Trainer:
             self.scaler.update()
             self.optimizer.zero_grad()
 
-            
+        torch.cuda.empty_cache()  # Clear cache to free up memory
         return total_loss / count
 
     def validate(self):
@@ -160,6 +161,7 @@ class Trainer:
                     loss = self.criterion(logits.view(-1, logits.size(-1)), labels.view(-1))
                 total_loss += loss.item()
                 count += 1
+        torch.cuda.empty_cache()  # Clear cache to free up memory
         return total_loss / count
     
     def train(self, epochs):
