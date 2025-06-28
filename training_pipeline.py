@@ -1,3 +1,4 @@
+
 """
 TODO:
 - Implement a Text class for handling text data.
@@ -171,6 +172,11 @@ class Trainer:
         torch.cuda.empty_cache()  # Clear cache to free up memory
         return total_loss / count
     
+    def save_model(self, path):
+        """Save the model to the specified path"""
+        torch.save(self.model.state_dict(), path)
+        print(f'Model saved to {path}')
+    
     def train(self, epochs):
         """Train the model for a specified number of epochs"""
         print(f'Starting training for {epochs} epochs...')
@@ -190,7 +196,10 @@ class Trainer:
                 self.end_training = True
             
             if self.end_training:
+                self.save_model(f'model_epoch_{epoch + 1}.pt')
                 print('Early stopping triggered.')
                 break
+        print('Training complete.')
+        self.save_model('final_model.pt')
 
 
