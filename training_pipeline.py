@@ -106,6 +106,7 @@ class Trainer:
         total_loss = 0.0
         count = 0
         accumlated_gradients = 0
+        total_tokens = 0
         self.optimizer.zero_grad()
         for batch in self.train_loader:
             ids = batch['input_ids'].to(DEVICE2)
@@ -124,7 +125,10 @@ class Trainer:
                 loss = self.alpha * loss_ce + self.beta * loss_kl
             self.scaler.scale(loss).backward()
             accumlated_gradients += 1
-            total_loss += loss.item()
+            n_tokens = labels.numel()
+            
+            total_loss += loss.item() * n_tokens
+            total_tokens += n_tokens
             self.current_amount_of_tokens += ids.numel()
             count += 1
 
@@ -147,7 +151,7 @@ class Trainer:
             self.optimizer.zero_grad()
 
         torch.cuda.empty_cache()  # Clear cache to free up memory
-        return total_loss / count
+        return total_loss / total_tokens
 
     def validate(self):
         """Validate the model on the validation dataset"""
