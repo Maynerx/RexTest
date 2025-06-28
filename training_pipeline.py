@@ -44,6 +44,7 @@ class Trainer:
         self.teacher_model = teacher_model
         self.model.to(DEVICE1)
         self.teacher_model.to(DEVICE2)
+        self.teacher_model.half()
         self.teacher_model = torch.compile(self.teacher_model, mode="default")
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
@@ -108,8 +109,7 @@ class Trainer:
         self.teacher_model.eval()
         with torch.no_grad():
             ids = ids.to(self.teacher_model.device)
-            with torch.autocast(device_type='cuda'):
-                logits = self.teacher_model(ids).logits
+            logits = self.teacher_model(ids).logits
             teacher_probs = teacher_probs = F.softmax(logits / self.temperature, dim=-1) 
         return teacher_probs
 
