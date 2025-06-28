@@ -40,7 +40,7 @@ def scaled_dot_product_attention_grouped(
     similarity = einsum(q, k, "b g h n d, b h s d -> b g h n s")
 
     if is_causal:
-        mask = torch.tril(torch.ones((bq, nq, nk), device=q.device))
+        mask = torch.tril(torch.ones((bq, nq, nk), device=q.device)).bool()
         mask = rearrange(mask, 'b n s -> b () () n s')
         similarity.masked_fill_(~mask, torch.finfo(similarity.dtype).min)
 
