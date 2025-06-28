@@ -104,7 +104,7 @@ class Trainer:
         count = 0
         for batch in self.train_loader:
             ids = batch['input_ids'].to(DEVICE2)
-            labels = ids[:, 1:].to(DEVICE1)  # Shifted input for next token prediction
+            labels = batch['labels'].to(DEVICE1)
             teacher_probs = self.teacher_predict(ids)
             teacher_probs = teacher_probs.cpu() # Offload to CPU to save GPU memory
             self.optimizer.zero_grad()
@@ -135,7 +135,7 @@ class Trainer:
         with torch.no_grad():
             for batch in self.val_loader:
                 ids = batch['input_ids'].to(DEVICE1)
-                labels = ids[:, 1:].to(DEVICE1)
+                labels = batch['labels'].to(DEVICE1)
                 with torch.autocast(device_type='cuda', dtype=torch.float16):
                     latent = self.model.encoder(ids)
                     logits = self.model.decoder(ids, latent)
