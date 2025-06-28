@@ -110,8 +110,8 @@ class Trainer:
             self.optimizer.zero_grad()
             ids = ids.to(DEVICE1)  # Move ids to the student model's device
             with torch.autocast(device_type='cuda', dtype=torch.float16):
-                latent = self.model.encode(ids)
-                student_logits = self.model.decode(ids, latent)
+                latent = self.model.encoder(ids)
+                student_logits = self.model.decoder(ids, latent)
                 loss_ce = self.criterion(student_logits.view(-1, student_logits.size(-1)), labels.view(-1))
                 log_ps = torch.log_softmax(student_logits / self.temperature, dim=-1)
                 loss_kl = self.kl_divergence(log_ps, teacher_probs.to(DEVICE1)) * self.temperature**2
@@ -137,8 +137,8 @@ class Trainer:
                 ids = batch['input_ids'].to(DEVICE1)
                 labels = ids[:, 1:].to(DEVICE1)
                 with torch.autocast(device_type='cuda', dtype=torch.float16):
-                    latent = self.model.encode(ids)
-                    logits = self.model.decode(ids, latent)
+                    latent = self.model.encoder(ids)
+                    logits = self.model.decoder(ids, latent)
                     loss = self.criterion(logits.view(-1, logits.size(-1)), labels.view(-1))
                 total_loss += loss.item()
                 count += 1
