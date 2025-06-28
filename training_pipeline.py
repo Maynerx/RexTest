@@ -21,6 +21,7 @@ from torch.utils.data import Dataset
 import tqdm.auto as tqdm
 import math
 import torch.nn.functional as F
+from transformers import get_cosine_schedule_with_warmup
 
 DEVICE1 = 'cuda:0'
 DEVICE2 = 'cuda:1'
@@ -31,6 +32,7 @@ class Trainer:
                 teacher_model,
                 train_dataset: Dataset,
                 val_dataset: Dataset, 
+                num_epochs=10,
                 batch_size=32, 
                 learning_rate=5e-5,
                 temperature=1.0,
@@ -59,6 +61,16 @@ class Trainer:
         self.val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
         
         self.optimizer = torch.optim.AdamW(student_model.parameters(), lr=learning_rate)
+
+        steps_per_epoch = math.ceil(len(self.train_loader) / self.grad_accumulation_steps)
+        total_steps    = steps_per_epoch * num_epochs
+        warmup_steps   = int(0.1 * total_steps)
+
+        self.scheduler = get_cosine_schedule_with_warmup(
+            self.optimizer, 
+            num_warmup_steps=warmup_steps,
+            num_training_steps=total_steps,
+        )
         self.criterion = nn.CrossEntropyLoss()
         self.kl_divergence = nn.KLDivLoss(reduction='batchmean')
         self.scaler = torch.amp.GradScaler()  # For mixed precision training
@@ -139,6 +151,7 @@ class Trainer:
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
                 self.optimizer.zero_grad()
+                self.scheduler.step()  # Update learning rate
             
             
             if self.current_amount_of_tokens % self.total_amount_of_tokens // 10 == 0:
@@ -150,6 +163,7 @@ class Trainer:
             self.scaler.step(self.optimizer)
             self.scaler.update()
             self.optimizer.zero_grad()
+            self.scheduler.step()  # Update learning rate after the epoch
 
         torch.cuda.empty_cache()  # Clear cache to free up memory
         return total_loss / total_tokens
