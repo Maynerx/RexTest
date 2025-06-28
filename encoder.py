@@ -79,7 +79,7 @@ class Encoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.embedding(x)
         for layer in self.layers:
-            x = checkpoint(layer, x)
+            x = checkpoint(layer, x, use_reentrant=False)
         x = self.norm(x)
         return self.latent_proj(x)
 
