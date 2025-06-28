@@ -58,7 +58,7 @@ class Trainer:
         self.beta = beta  # Weight for cross-entropy loss
         self.grad_accumulation_steps = grad_accumulation_steps
         
-        self.train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        self.train_loader = DataLoader(train_dataset, batch_size=batch_size//grad_accumulation_steps, shuffle=True)
         self.val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
         
         self.optimizer = torch.optim.AdamW(student_model.parameters(), lr=learning_rate)
