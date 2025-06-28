@@ -33,7 +33,8 @@ class Trainer:
                 learning_rate=5e-5,
                 temperature=1.0,
                 alpha=0.5,
-                beta=0.5
+                beta=0.5,
+                grad_accumulation_steps=4
                 ):
         self.model = student_model
         self.teacher_model = teacher_model
@@ -50,6 +51,7 @@ class Trainer:
         self.temperature = temperature  # Temperature for distillation
         self.alpha = alpha  # Weight for distillation loss
         self.beta = beta  # Weight for cross-entropy loss
+        self.grad_accumulation_steps = grad_accumulation_steps
         
         self.train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         self.val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
@@ -102,6 +104,7 @@ class Trainer:
 
         total_loss = 0.0
         count = 0
+        accumlated_gradients = 0
         for batch in self.train_loader:
             ids = batch['input_ids'].to(DEVICE2)
             labels = batch['labels'].to(DEVICE1)
@@ -117,14 +120,29 @@ class Trainer:
                 loss_kl = self.kl_divergence(log_ps, teacher_probs.to(DEVICE1)) * self.temperature**2
                 loss = self.alpha * loss_ce + self.beta * loss_kl
             self.scaler.scale(loss).backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)  # Gradient clipping
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
+            accumlated_gradients += 1
             total_loss += loss.item()
             self.current_amount_of_tokens += ids.numel()
             count += 1
+
+            if accumlated_gradients % self.grad_accumulation_steps == 0:
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)  # Gradient clipping
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            
+            
             if self.current_amount_of_tokens % self.total_amount_of_tokens // 10 == 0:
                 print(f'Current loss: {total_loss / count:.4f}, Tokens processed: {self.current_amount_of_tokens}/{self.total_amount_of_tokens}')
+
+        if accumlated_gradients > 0:
+            self.scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+            self.optimizer.zero_grad()
+
+            
         return total_loss / count
 
     def validate(self):
