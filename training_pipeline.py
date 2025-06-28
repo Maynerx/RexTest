@@ -94,7 +94,7 @@ class Trainer:
             ids = ids.to(self.teacher_model.device)
             with torch.autocast(device_type='cuda'):
                 logits = self.teacher_model(ids).logits
-            teacher_probs = torch.log_softmax(logits / self.temperature, dim=-1)
+            teacher_probs = teacher_probs = F.softmax(logits / self.temperature, dim=-1) 
         return teacher_probs
 
     def train_one_epoch(self):
