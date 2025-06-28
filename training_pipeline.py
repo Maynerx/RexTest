@@ -127,7 +127,7 @@ class Trainer:
             accumlated_gradients += 1
             n_tokens = labels.numel()
             
-            total_loss += loss.item() * n_tokens
+            total_loss += loss_ce.item() * n_tokens
             total_tokens += n_tokens
             self.current_amount_of_tokens += ids.numel()
             count += 1
