@@ -114,7 +114,7 @@ class Decoder(nn.Module):
     def forward(self, x: torch.Tensor, latent: torch.Tensor) -> torch.Tensor:
         x = self.embedding(x)
         for layer in self.layers:
-            x = checkpoint(layer, x, latent)
+            x = checkpoint(layer, x, latent, use_reentrant=False)
         x = self.norm(x)
         x = self.out(x)
         return x
