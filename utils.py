@@ -50,6 +50,7 @@ def scaled_dot_product_attention_grouped(
     return out
 
 
+
 def precompute_freq_cis(dim: int, max_seq_len: int, base: float = 10000.0) -> torch.Tensor:
     # dim must be even
     inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, dtype=torch.float32) / dim))
