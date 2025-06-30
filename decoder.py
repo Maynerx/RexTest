@@ -12,7 +12,8 @@ class DecoderLayer(nn.Module):
                 num_heads: int, 
                 max_length: int, 
                 dropout: float = 0.1, 
-                attention_type: str = 'MHA'
+                attention_type: str = 'MHA',
+                flash_attention: bool = False
                 ):
         super(DecoderLayer, self).__init__()
         assert attention_type in ATTENTION_TYPE, f"Invalid attention type: {attention_type}. Choose from {ATTENTION_TYPE}"
@@ -25,15 +26,16 @@ class DecoderLayer(nn.Module):
                 dropout, 
                 is_causal=True
             )
-        elif attention_type == 'GQA':
+        elif attention_type == 'GQA': 
             self.masked_attention = GroupedQueryAttention(
                 dim,
                 dim,
-                max(1, num_heads // 4),  # GQA typically uses half the number of heads
+                max(1, num_heads // 4),
                 num_heads, 
                 max_length, 
                 dropout, 
-                is_causal=True
+                is_causal=True,
+                flash_attention=flash_attention
             )
         elif attention_type == 'MLA':
             raise NotImplementedError("MLA (Multi Latent Attention) is not implemented yet.")
@@ -54,11 +56,12 @@ class DecoderLayer(nn.Module):
             self.cross_attention = GroupedQueryAttention(
                 dim,
                 latent_dim,
-                max(1, num_heads // 4),  # GQA typically uses half the number of heads
+                max(1, num_heads // 4),
                 num_heads, 
                 max_length, 
                 dropout, 
-                is_causal=False
+                is_causal=False,
+                flash_attention=flash_attention
             )
         elif attention_type == 'MLA':
             raise NotImplementedError("MLA (Multi Latent Attention) is not implemented yet.")
@@ -101,12 +104,13 @@ class Decoder(nn.Module):
                 max_length: int, 
                 latent_dim: int, 
                 dropout: float = 0.1,
-                attention_type: str = 'MHA'
+                attention_type: str = 'MHA',
+                flash_attention: bool = False
                 ):
         super(Decoder, self).__init__()
         self.embedding = nn.Embedding(vocab_size, dim)
         self.layers = nn.ModuleList([
-            DecoderLayer(dim, latent_dim, num_heads, max_length, dropout, attention_type) for _ in range(num_layers)
+            DecoderLayer(dim, latent_dim, num_heads, max_length, dropout, attention_type, flash_attention) for _ in range(num_layers)
         ])
         self.norm = RMSNorm(dim)
         self.out = nn.Linear(dim, vocab_size)
@@ -119,6 +123,7 @@ class Decoder(nn.Module):
         x = self.out(x)
         return x
     
+
 """
 # Example usage:
 
@@ -129,12 +134,14 @@ model = Decoder(
     num_heads=8,
     max_length=512,
     latent_dim=256,
-    dropout=0.1
-)
+    dropout=0.1,
+    attention_type='GQA',  # or 'MHA' for Multi-Head Attention
+    flash_attention=True  # Set to True if using Flash Attention
+).cuda()  # Move model to GPU if available
 
 # Example input
-input_tensor = torch.randint(0, 10000, (32, 50))  # Batch size of 32, sequence length of 50
-latent_tensor = torch.randn((32, 512, 256))  # Batch size of 32, latent dimension of 256
+input_tensor = torch.randint(0, 10000, (32, 50)).cuda()  # Batch size of 32, sequence length of 50
+latent_tensor = torch.randn((32, 50, 256)).cuda()  # Batch size of 32, latent dimension of 256
 output = model(input_tensor, latent_tensor)
 print(output.shape)  # Should be (32, 50, 10000) for
 """
