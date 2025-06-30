@@ -109,16 +109,16 @@ class Trainer:
 
         it = iter(self.train_loader)
         # Forward-only warmup to compile caches for both models
-        with torch.inference_mode():
+        with torch.no_grad():
             for _ in range(num_batches):
                 batch = next(it)
                 ids = batch['input_ids'].to(DEVICE1)
-                # Student inference
+                    # Student inference
                 _ = self.model(ids, ids)
-                # Teacher inference (on its device)
-                with torch.no_grad():
-                    _ = self.teacher_model(ids.to(DEVICE2))
-        # Synchronize devices
+                    # Teacher inference (on its device)
+                
+                _ = self.teacher_model(ids.to(DEVICE2))
+            # Synchronize devices
         torch.cuda.synchronize(DEVICE1)
         torch.cuda.synchronize(DEVICE2)
 
