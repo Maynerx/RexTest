@@ -42,8 +42,7 @@ def scaled_dot_product_attention_grouped(
     if is_causal:
         mask = torch.tril(torch.ones((bq, nq, nk), device=q.device)).bool()
         mask = rearrange(mask, 'b n s -> b () () n s')
-        full_mask = mask.expand_as(similarity).contiguous()
-        similarity.masked_fill_(~full_mask, torch.finfo(similarity.dtype).min)
+        similarity = similarity.masked_fill(~mask, torch.finfo(similarity.dtype).min)
         #similarity.masked_fill_(~mask, torch.finfo(similarity.dtype).min)
 
     att = F.softmax(similarity, dim=-1)
