@@ -16,7 +16,8 @@ class Transformer(nn.Module):
                 latent_dim: int, 
                 dropout: float = 0.1, 
                 is_causal: bool = False,
-                attention_type: str = 'MHA'
+                attention_type: str = 'MHA',
+                flash_attention: bool = False
                 ):
         super(Transformer, self).__init__()
         self.encoder = Encoder(
@@ -28,7 +29,8 @@ class Transformer(nn.Module):
             latent_dim=latent_dim, 
             dropout=dropout, 
             is_causal=is_causal,
-            attention_type=attention_type
+            attention_type=attention_type,
+            flash_attention=flash_attention
         )
         self.decoder = Decoder(
             dim=dim, 
@@ -38,7 +40,8 @@ class Transformer(nn.Module):
             max_length=max_length, 
             latent_dim=latent_dim, 
             dropout=dropout,
-            attention_type=attention_type
+            attention_type=attention_type,
+            flash_attention=flash_attention
         )
 
     def forward(self, src: torch.Tensor, tgt: torch.Tensor) -> torch.Tensor:
@@ -47,25 +50,33 @@ class Transformer(nn.Module):
         return output
     
 
-# Test
 """
+
+# Test
+
 model = Transformer(
     dim=768, 
     vocab_size=10000, 
-    enoder_layers=12,
+    encoder_layers=12,
     decoder_layers=6,
     num_heads=8, 
-    max_length=32, 
+    max_length=512, 
     latent_dim=256, 
     dropout=0.1, 
-    is_causal=False
+    is_causal=False,
+    attention_type='GQA',  # or 'MHA' for Multi-Head Attention,
+    flash_attention=True  # Set to True if using Flash Attention
 ).cuda()
 
-src = torch.randint(0, 10000, (32, 32)).cuda()  # Batch of 32 sequences of length 512
-tgt = torch.randint(0, 10000, (32, 32)).cuda()
+src = torch.randint(0, 10000, (64, 512)).cuda()  # Batch of 32 sequences of length 512
+tgt = torch.randint(0, 10000, (64, 512)).cuda()
 
 print(f"{sum(p.numel() for p in model.parameters()) / 1e6} M")  # Print number of trainable parameters
 
-output = model(src, tgt)
-print(output.shape)  # Should be [32, 512, 10000] for
+def foo():
+    return model(src, tgt)
+
+import timeit
+
+print(f"Time taken for 100 runs: {timeit.timeit(foo, number=100)} seconds")
 """
