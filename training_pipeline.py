@@ -114,7 +114,7 @@ class Trainer:
                 batch = next(it)
                 ids = batch['input_ids'].to(DEVICE1)
                 # Student inference
-                _ = self.model(ids)
+                _ = self.model(ids, ids)
                 # Teacher inference (on its device)
                 with torch.no_grad():
                     _ = self.teacher_model(ids.to(DEVICE2))
@@ -133,7 +133,7 @@ class Trainer:
 
         self.optimizer.zero_grad()
         with torch.autocast('cuda', dtype=torch.float16):
-            logits = self.model(ids)
+            logits = self.model(ids, ids)
             loss = self.criterion(logits.view(-1, logits.size(-1)), labels.view(-1))
         self.scaler.scale(loss).backward()
         self.scaler.step(self.optimizer)
@@ -235,8 +235,7 @@ class Trainer:
                 ids = batch['input_ids'].to(DEVICE1)
                 labels = batch['labels'].to(DEVICE1)
                 with torch.autocast(device_type='cuda', dtype=torch.float16):
-                    latent = self.model.encoder(ids)
-                    logits = self.model.decoder(ids, latent)
+                    logits = self.model(ids, ids)
                     loss = self.criterion(logits.view(-1, logits.size(-1)), labels.view(-1))
                 total_loss += loss.item()
                 count += 1
