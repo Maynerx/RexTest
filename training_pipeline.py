@@ -42,6 +42,12 @@ class Trainer:
                 ):
         self.model = student_model
         self.teacher_model = teacher_model
+        self.model = torch.compile(
+            self.model,
+            backend="inductor",       # default; good general‑purpose
+            mode="max-autotune",      # autotune kernels for best throughput
+            fullgraph=True            # fuse across forward+backward
+        )
         self.model.to(DEVICE1)
         self.teacher_model.to(DEVICE2)
         self.teacher_model.half()
@@ -88,6 +94,55 @@ class Trainer:
         print(f"  Temperature: {self.temperature}")
         print(f"  Alpha (distillation loss weight): {self.alpha}")
         print(f"  Beta (cross-entropy loss weight): {self.beta}")
+
+    def models_warmup(self, num_batches: int = 10):
+        """
+        Warm up both student and teacher models by running a few forward passes
+        (for compilation, tracing & cache) prior to training.
+
+        Args:
+            num_batches (int): Number of batches to use for warmup (default: 10).
+        """
+        # Set correct modes
+        self.model.train()
+        self.teacher_model.eval()
+
+        it = iter(self.train_loader)
+        # Forward-only warmup to compile caches for both models
+        with torch.inference_mode():
+            for _ in range(num_batches):
+                batch = next(it)
+                ids = batch['input_ids'].to(DEVICE1)
+                # Student inference
+                _ = self.model(ids)
+                # Teacher inference (on its device)
+                with torch.no_grad():
+                    _ = self.teacher_model(ids.to(DEVICE2))
+        # Synchronize devices
+        torch.cuda.synchronize(DEVICE1)
+        torch.cuda.synchronize(DEVICE2)
+
+        # Optional: one quick backward step on student to warm training kernels
+        try:
+            batch = next(it)
+        except StopIteration:
+            it = iter(self.train_loader)
+            batch = next(it)
+        ids = batch['input_ids'].to(DEVICE1)
+        labels = batch['labels'].to(DEVICE1)
+
+        self.optimizer.zero_grad()
+        with torch.autocast('cuda', dtype=torch.float16):
+            logits = self.model(ids)
+            loss = self.criterion(logits.view(-1, logits.size(-1)), labels.view(-1))
+        self.scaler.scale(loss).backward()
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
+        self.optimizer.zero_grad()
+
+        torch.cuda.synchronize(DEVICE1)
+
+        print(f"Warmup complete: {num_batches} inference batches and 1 training batch.")
 
 
     def compute_perplexity(self, loss):
@@ -196,6 +251,7 @@ class Trainer:
     def train(self):
         """Train the model for a specified number of epochs"""
         epochs = self.num_epochs
+        self.models_warmup(num_batches=10)
         print(f'Starting training for {epochs} epochs...')
         for epoch in tqdm.tqdm(range(epochs)):
             print(f'Epoch {epoch + 1}/{epochs}')
@@ -221,5 +277,4 @@ class Trainer:
                 break
         print('Training complete.')
         self.save_model('final_model.pt')
-
 
