@@ -14,7 +14,8 @@ class EncoderLayer(nn.Module):
                 max_length: int, 
                 dropout: float = 0.1, 
                 is_causal: bool = False,
-                attention_type: str = 'MHA'
+                attention_type: str = 'MHA',
+                flash_attention: bool = False
                 ):
         super().__init__()
         assert attention_type in ATTENTION_TYPE, f"Invalid attention type: {attention_type}. Choose from {ATTENTION_TYPE}"
@@ -34,7 +35,8 @@ class EncoderLayer(nn.Module):
                 num_heads, 
                 max_length, 
                 dropout, 
-                is_causal)
+                is_causal,
+                flash_attention=flash_attention)
         elif attention_type == 'MLA':
             raise NotImplementedError("MLA (Multi Latent Attention) is not implemented yet.")
 
@@ -66,12 +68,13 @@ class Encoder(nn.Module):
                 latent_dim: int, 
                 dropout: float = 0.1, 
                 is_causal: bool = False,
-                attention_type: str = 'MHA'
+                attention_type: str = 'MHA',
+                flash_attention: bool = False
                 ):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, dim)
         self.layers = nn.ModuleList([
-            EncoderLayer(dim, num_heads, max_length, dropout, is_causal, attention_type) for _ in range(num_layers)
+            EncoderLayer(dim, num_heads, max_length, dropout, is_causal, attention_type, flash_attention) for _ in range(num_layers)
         ])
         self.norm = RMSNorm(dim)
         self.latent_proj = nn.Linear(dim, latent_dim)
@@ -82,7 +85,6 @@ class Encoder(nn.Module):
             x = checkpoint(layer, x, use_reentrant=False)
         x = self.norm(x)
         return self.latent_proj(x)
-
 
 
 
@@ -97,10 +99,18 @@ model = Encoder(
     max_length=512, 
     latent_dim=256, 
     dropout=0.1, 
-    is_causal=False
-)
+    is_causal=False,
+    attention_type='GQA',
+    flash_attention=True
+).cuda()
 
-x = torch.randint(0, 10000, (2, 512))  # Batch size of 2, sequence length of 512
-output = model(x)
-print(output.shape)  # Should be (2, 512, 256) if latent_dim is 256
+
+def foo():
+    x = torch.randint(0, 10000, (64, 512)).cuda()  # batch_size=32, seq_length=512
+    return model(x)
+# Example usage
+
+import timeit
+
+print(timeit.timeit(foo, number=100))
 """
