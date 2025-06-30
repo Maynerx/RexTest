@@ -113,7 +113,8 @@ class GroupedQueryAttention(nn.Module):
         #v = rearrange(v, "b n (h d) -> b n h d", h=self.kv_heads)
 
         if self.apply_rotary:
-            self.freqs_cis = self.freqs_cis.to(query.device)
+            freqs = self.freqs_cis 
+            freqs.to(q.device)
             q = apply_rotary_emb(q, self.freqs_cis[:q.size(1)])
             k = apply_rotary_emb(k, self.freqs_cis[:k.size(1)])
 
