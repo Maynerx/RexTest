@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 from utils import scaled_dot_product_attention_grouped, apply_rotary_emb, precompute_freq_cis
+from torch.nn.attention import SDPBackend, sdpa_kernel
 
 
 ATTENTION_TYPE = ['MHA', 'GQA', 'MLA']
@@ -59,7 +60,17 @@ class MultiAttentionHeads(nn.Module):
 
 # Grouped Query Attention
 class GroupedQueryAttention(nn.Module):
-    def __init__(self, dim: int, k_dim: int, kv_heads: int, query_heads: int, max_length: int, dropout: int = 0.1, is_causal: bool = False, apply_rotary: bool = True):
+    def __init__(self, 
+                dim: int, 
+                k_dim: int, 
+                kv_heads: int, 
+                query_heads: int, 
+                max_length: int, 
+                dropout: int = 0.1, 
+                is_causal: bool = False, 
+                apply_rotary: bool = True, 
+                flash_attention: bool = False
+                ):
         super().__init__()
         assert dim % query_heads == 0, "dim must be divisible by query_heads"
         self.dim = dim
@@ -76,6 +87,8 @@ class GroupedQueryAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.head_dim = dim // query_heads
 
+        self.flash_attention = flash_attention
+
         self.apply_rotary = apply_rotary
         if self.apply_rotary:
             self.register_buffer("freqs_cis", precompute_freq_cis(self.head_dim, max_length), persistent=False)
@@ -87,16 +100,40 @@ class GroupedQueryAttention(nn.Module):
         k = self.k_proj(key)
         v = self.v_proj(value)
 
-        q = rearrange(q, "b n (h d) -> b n h d", h=self.query_heads)
-        k = rearrange(k, "b n (h d) -> b n h d", h=self.kv_heads)
-        v = rearrange(v, "b n (h d) -> b n h d", h=self.kv_heads)
+        bq, nq, dq = q.shape
+        bk, nk, dk = k.shape
+        bv, nv, dv = v.shape
+
+        q = q.view(bq, nq, self.query_heads, dq // self.query_heads)
+        k = k.view(bk, nk, self.kv_heads, dk // self.kv_heads)
+        v = v.view(bv, nv, self.kv_heads, dv // self.kv_heads)
+
+        #q = rearrange(q, "b n (h d) -> b n h d", h=self.query_heads)
+        #k = rearrange(k, "b n (h d) -> b n h d", h=self.kv_heads)
+        #v = rearrange(v, "b n (h d) -> b n h d", h=self.kv_heads)
 
         if self.apply_rotary:
             self.freqs_cis = self.freqs_cis.to(query.device)
             q = apply_rotary_emb(q, self.freqs_cis[:q.size(1)])
             k = apply_rotary_emb(k, self.freqs_cis[:k.size(1)])
 
-        out = scaled_dot_product_attention_grouped(q, k, v, self.scale, self.is_causal)
-        out = rearrange(out, "b n h d -> b n (h d)")
+        if self.flash_attention:
+            with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+                out = F.scaled_dot_product_attention(
+                query=q,
+                key=k,
+                value=v,
+                attn_mask=None,
+                dropout_p=self.dropout.p,
+                is_causal=self.is_causal,
+                scale=self.scale,
+                enable_gqa=True
+                )
+        else:
+            out = scaled_dot_product_attention_grouped(q, k, v, self.scale, self.is_causal)
+        out = out.reshape(out.size(0), out.size(1), out.size(2) * out.size(3))  # Flatten the heads
+        #out = rearrange(out, "b n h d -> b n (h d)")
         out = self.out_proj(out)
         return out
+
+
