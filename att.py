@@ -118,7 +118,7 @@ class GroupedQueryAttention(nn.Module):
             k = apply_rotary_emb(k, self.freqs_cis[:k.size(1)])
 
         if self.flash_attention:
-            with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+            with sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
                 out = F.scaled_dot_product_attention(
                 query=q,
                 key=k,
