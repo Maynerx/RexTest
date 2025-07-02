@@ -2,14 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import einsum, rearrange
-#from xformers.ops import memory_efficient_attention
-#from xformers.ops.fmha.attn_bias import LowerTriangularMask
-#from xformers.ops.fmha.cutlass import FwOp as CutlassFwOp, BwOp as CutlassBwOp
-#from torch.nn.attention import SDPBackend, sdpa_kernel
-from flash_attn_triton import FlashAttention
-import io, sys
-from contextlib import redirect_stdout
-
+from xformers.ops import memory_efficient_attention
+from xformers.ops.fmha.attn_bias import LowerTriangularMask
+from xformers.ops.fmha.cutlass import FwOp as CutlassFwOp, BwOp as CutlassBwOp
 
 def scaled_dot_product_attention_grouped(
         queries: torch.Tensor,
@@ -58,9 +53,9 @@ def scaled_dot_product_attention_grouped(
 
 
 def scaled_dot_product_attention_grouped_flash(
-        q: torch.Tensor,
-        k: torch.Tensor, 
-        v: torch.Tensor, 
+        queries: torch.Tensor,
+        keys: torch.Tensor, 
+        values: torch.Tensor, 
         scale: float, 
         is_causal: bool = False,
         dropout_p: float = 0.0
@@ -77,30 +72,32 @@ def scaled_dot_product_attention_grouped_flash(
     Returns:
         torch.Tensor: Output tensor after applying attention.
     """
-    #q = queries.permute(0, 2, 1, 3)
-    #k = keys.permute(0, 2, 1, 3)
-    #v = values.permute(0, 2, 1, 3)
+    q = queries.permute(0, 2, 1, 3)
+    k = keys.permute(0, 2, 1, 3)
+    v = values.permute(0, 2, 1, 3)
 
     bq, hq, nq, dq = q.shape
     bk, hk, nk, dk = k.shape
     bv, hv, nv, dv = v.shape
 
-    #q = q * scale
+    repeat = hq // hk
+    k = k.repeat_interleave(repeat, dim=1)  # (B, hq, Tk, d)
+    v = v.repeat_interleave(repeat, dim=1)  # (B, hq, Tv, d)
 
-    flash_attn = FlashAttention(softmax_scale=scale)
+    attn_bias = None
+    if is_causal:
+        attn_bias = LowerTriangularMask(device=q.device, dtype=q.dtype)
+    
 
-
-    #repeat = hq // hk
-    #k = k.repeat_interleave(repeat, dim=2)  # (B, hq, Tk, d)
-    #v = v.repeat_interleave(repeat, dim=2)  # (B, hq, Tv, d)
-
-    #q = q.permute(0, 2, 1, 3)  # (B, nq, hq, dq)
-    #k = k.permute(0, 2, 1, 3)  # (B, nk, hk, dk)
-    #v = v.permute(0, 2, 1, 3)
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        out = flash_attn(q, k, v, causal=is_causal)
-    #out = out.permute(0, 2, 1, 3)
+    out = memory_efficient_attention(
+        query=q,
+        key=k,
+        value=v,
+        attn_bias=attn_bias,
+        scale=scale,
+        op=[CutlassFwOp(), CutlassBwOp()],
+    )
+    out = out.permute(0, 2, 1, 3)
 
     return out
 
