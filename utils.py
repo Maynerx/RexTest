@@ -50,6 +50,53 @@ def scaled_dot_product_attention_grouped(
     out = rearrange(out, 'b g h n d -> b n (g h) d')
     return out
 
+def scaled_dot_product_attention_grouped_flash(
+        queries: torch.Tensor,
+        keys: torch.Tensor, 
+        values: torch.Tensor, 
+        scale: float, 
+        is_causal: bool = False,
+        dropout_p: float = 0.0
+        ) -> torch.Tensor:
+    """
+    Compute scaled dot-product attention with grouped queries.
+    
+    Args:
+        queries (torch.Tensor): Query tensor of shape (B, T_q, C).
+        keys (torch.Tensor): Key tensor of shape (B, T_k, C).
+        values (torch.Tensor): Value tensor of shape (B, T_v, C).
+        scale (float): Scaling factor for the dot product.
+        
+    Returns:
+        torch.Tensor: Output tensor after applying attention.
+    """
+    q = queries.permute(0, 2, 1, 3)
+    k = keys.permute(0, 2, 1, 3)
+    v = values.permute(0, 2, 1, 3)
+
+    bq, hq, nq, dq = q.shape
+    bk, hk, nk, dk = k.shape
+    bv, hv, nv, dv = v.shape
+
+    repeat = hq // hk
+    k = k.repeat_interleave(repeat, dim=1)  # (B, hq, Tk, d)
+    v = v.repeat_interleave(repeat, dim=1)  # (B, hq, Tv, d)
+
+    attn_bias = None
+    if is_causal:
+        attn_bias = LowerTriangularMask(device=q.device, dtype=q.dtype)
+    
+
+    out = memory_efficient_attention(
+        query=q,
+        key=k,
+        value=v,
+        attn_bias=attn_bias,
+        scale=scale
+    )
+    out = out.permute(0, 2, 1, 3)
+
+    return out
 
 
 def precompute_freq_cis(dim: int, max_seq_len: int, base: float = 10000.0) -> torch.Tensor:
