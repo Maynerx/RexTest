@@ -111,7 +111,7 @@ class Trainer:
             num_batches (int): Number of batches to use for warmup (default: 10).
         """
         # Set correct modes
-        self.model.train()
+        self.model.eval()
         self.teacher_model.eval()
 
         it = iter(self.train_loader)
