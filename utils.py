@@ -8,7 +8,7 @@ from einops import einsum, rearrange
 #from torch.nn.attention import SDPBackend, sdpa_kernel
 from flash_attn_triton import FlashAttention
 
-flash_attn = FlashAttention()
+
 
 def scaled_dot_product_attention_grouped(
         queries: torch.Tensor,
@@ -84,11 +84,14 @@ def scaled_dot_product_attention_grouped_flash(
     bk, hk, nk, dk = k.shape
     bv, hv, nv, dv = v.shape
 
-    q = q * scale
+    #q = q * scale
 
-    repeat = hq // hk
-    k = k.repeat_interleave(repeat, dim=2)  # (B, hq, Tk, d)
-    v = v.repeat_interleave(repeat, dim=2)  # (B, hq, Tv, d)
+    flash_attn = FlashAttention(softmax_scale=scale)
+
+
+    #repeat = hq // hk
+    #k = k.repeat_interleave(repeat, dim=2)  # (B, hq, Tk, d)
+    #v = v.repeat_interleave(repeat, dim=2)  # (B, hq, Tv, d)
 
     #q = q.permute(0, 2, 1, 3)  # (B, nq, hq, dq)
     #k = k.permute(0, 2, 1, 3)  # (B, nk, hk, dk)
