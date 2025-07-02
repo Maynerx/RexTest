@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from einops import einsum, rearrange
 from xformers.ops import memory_efficient_attention
 from xformers.ops.fmha.attn_bias import LowerTriangularMask
+from xformers.ops.fmha.flash import FwOp as FlashOp
 
 def scaled_dot_product_attention_grouped(
         queries: torch.Tensor,
@@ -43,13 +44,13 @@ def scaled_dot_product_attention_grouped(
     if is_causal:
         mask = torch.tril(torch.ones((bq, nq, nk), device=q.device)).bool()
         mask = rearrange(mask, 'b n s -> b () () n s')
-        similarity = similarity.masked_fill(~mask, torch.finfo(similarity.dtype).min)
-        #similarity.masked_fill_(~mask, torch.finfo(similarity.dtype).min)
+        similarity.masked_fill_(~mask, torch.finfo(similarity.dtype).min)
 
     att = F.softmax(similarity, dim=-1)
     out = einsum(att, v, "b g h n s, b h s d -> b g h n d")
     out = rearrange(out, 'b g h n d -> b n (g h) d')
     return out
+
 
 def scaled_dot_product_attention_grouped_flash(
         queries: torch.Tensor,
@@ -93,11 +94,13 @@ def scaled_dot_product_attention_grouped_flash(
         key=k,
         value=v,
         attn_bias=attn_bias,
-        scale=scale
+        scale=scale,
+        op=FlashOp()
     )
     out = out.permute(0, 2, 1, 3)
 
     return out
+
 
 
 def precompute_freq_cis(dim: int, max_seq_len: int, base: float = 10000.0) -> torch.Tensor:
