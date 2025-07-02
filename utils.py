@@ -57,9 +57,9 @@ def scaled_dot_product_attention_grouped(
 
 
 def scaled_dot_product_attention_grouped_flash(
-        queries: torch.Tensor,
-        keys: torch.Tensor, 
-        values: torch.Tensor, 
+        q: torch.Tensor,
+        k: torch.Tensor, 
+        v: torch.Tensor, 
         scale: float, 
         is_causal: bool = False,
         dropout_p: float = 0.0
@@ -76,9 +76,9 @@ def scaled_dot_product_attention_grouped_flash(
     Returns:
         torch.Tensor: Output tensor after applying attention.
     """
-    q = queries.permute(0, 2, 1, 3)
-    k = keys.permute(0, 2, 1, 3)
-    v = values.permute(0, 2, 1, 3)
+    #q = queries.permute(0, 2, 1, 3)
+    #k = keys.permute(0, 2, 1, 3)
+    #v = values.permute(0, 2, 1, 3)
 
     bq, hq, nq, dq = q.shape
     bk, hk, nk, dk = k.shape
@@ -87,11 +87,15 @@ def scaled_dot_product_attention_grouped_flash(
     q = q * scale
 
     repeat = hq // hk
-    k = k.repeat_interleave(repeat, dim=1)  # (B, hq, Tk, d)
-    v = v.repeat_interleave(repeat, dim=1)  # (B, hq, Tv, d)
+    k = k.repeat_interleave(repeat, dim=2)  # (B, hq, Tk, d)
+    v = v.repeat_interleave(repeat, dim=2)  # (B, hq, Tv, d)
+
+    #q = q.permute(0, 2, 1, 3)  # (B, nq, hq, dq)
+    #k = k.permute(0, 2, 1, 3)  # (B, nk, hk, dk)
+    #v = v.permute(0, 2, 1, 3)
 
     out = flash_attn(q, k, v, causal=is_causal)
-    out = out.permute(0, 2, 1, 3)
+    #out = out.permute(0, 2, 1, 3)
 
     return out
 
