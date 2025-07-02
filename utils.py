@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from einops import einsum, rearrange
 from xformers.ops import memory_efficient_attention
 from xformers.ops.fmha.attn_bias import LowerTriangularMask
-from xformers.ops.fmha.flash import FwOp as FlashOp
+from xformers.ops.fmha.cutlass import FwOp as CutlassOp
 
 def scaled_dot_product_attention_grouped(
         queries: torch.Tensor,
@@ -95,7 +95,7 @@ def scaled_dot_product_attention_grouped_flash(
         value=v,
         attn_bias=attn_bias,
         scale=scale,
-        op=[FlashOp()]
+        op=[CutlassOp()]
     )
     out = out.permute(0, 2, 1, 3)
 
