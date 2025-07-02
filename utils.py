@@ -89,9 +89,9 @@ def scaled_dot_product_attention_grouped_flash(
     flash_attn = FlashAttention(softmax_scale=scale)
 
 
-    #repeat = hq // hk
-    #k = k.repeat_interleave(repeat, dim=2)  # (B, hq, Tk, d)
-    #v = v.repeat_interleave(repeat, dim=2)  # (B, hq, Tv, d)
+    repeat = hq // hk
+    k = k.repeat_interleave(repeat, dim=2)  # (B, hq, Tk, d)
+    v = v.repeat_interleave(repeat, dim=2)  # (B, hq, Tv, d)
 
     #q = q.permute(0, 2, 1, 3)  # (B, nq, hq, dq)
     #k = k.permute(0, 2, 1, 3)  # (B, nk, hk, dk)
