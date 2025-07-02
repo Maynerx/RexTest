@@ -5,6 +5,7 @@ from einops import einsum, rearrange
 from xformers.ops import memory_efficient_attention
 from xformers.ops.fmha.attn_bias import LowerTriangularMask
 from xformers.ops.fmha.cutlass import FwOp as CutlassFwOp, BwOp as CutlassBwOp
+from torch.nn.attention import SDPBackend, sdpa_kernel
 
 def scaled_dot_product_attention_grouped(
         queries: torch.Tensor,
@@ -84,6 +85,13 @@ def scaled_dot_product_attention_grouped_flash(
     k = k.repeat_interleave(repeat, dim=1)  # (B, hq, Tk, d)
     v = v.repeat_interleave(repeat, dim=1)  # (B, hq, Tv, d)
 
+    with sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
+        out = F.scaled_dot_product_attention(
+            q, k, v,
+            is_causal=is_causal
+        )
+    """
+
     attn_bias = None
     if is_causal:
         attn_bias = LowerTriangularMask(device=q.device, dtype=q.dtype)
@@ -97,6 +105,7 @@ def scaled_dot_product_attention_grouped_flash(
         scale=scale,
         op=[CutlassFwOp(), CutlassBwOp()],
     )
+    """
     out = out.permute(0, 2, 1, 3)
 
     return out
