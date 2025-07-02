@@ -23,6 +23,7 @@ import tqdm.auto as tqdm
 import math
 import torch.nn.functional as F
 from transformers import get_cosine_schedule_with_warmup
+import gc
 
 DEVICE1 = 'cuda:0'
 DEVICE2 = 'cuda:1'
@@ -47,7 +48,7 @@ class Trainer:
             self.model,
             backend="inductor",       # default; good general‑purpose
             mode="max-autotune",      # autotune kernels for best throughput
-            fullgraph=True
+            fullgraph=False
         )
         self.model.to(DEVICE1)
         self.teacher_model.to(DEVICE2)
@@ -114,41 +115,14 @@ class Trainer:
         self.teacher_model.eval()
 
         it = iter(self.train_loader)
-        # Forward-only warmup to compile caches for both models
         with torch.no_grad():
-            for _ in range(num_batches):
-                batch = next(it)
-                ids = batch['input_ids'].to(DEVICE1)
-                    # Student inference
+            for _ in tqdm.tqdm(range(num_batches)):
+                ids = next(it)['input_ids'].to(DEVICE1)
                 _ = self.model(ids, ids)
-                    # Teacher inference (on its device)
-                
                 _ = self.teacher_model(ids.to(DEVICE2))
-            # Synchronize devices
-        torch.cuda.synchronize(DEVICE1)
-        torch.cuda.synchronize(DEVICE2)
-
-        # Optional: one quick backward step on student to warm training kernels
-        try:
-            batch = next(it)
-        except StopIteration:
-            it = iter(self.train_loader)
-            batch = next(it)
-        ids = batch['input_ids'].to(DEVICE1)
-        labels = batch['labels'].to(DEVICE1)
-
-        self.optimizer.zero_grad()
-        with torch.autocast('cuda', dtype=torch.float16):
-            logits = self.model(ids, ids)
-            loss = self.criterion(logits.view(-1, logits.size(-1)), labels.view(-1))
-        self.scaler.scale(loss).backward()
-        self.scaler.step(self.optimizer)
-        self.scaler.update()
-        self.optimizer.zero_grad()
-
-        torch.cuda.synchronize(DEVICE1)
-
         print(f"Warmup complete: {num_batches} inference batches and 1 training batch.")
+        torch.cuda.empty_cache()
+        gc.collect()
 
 
     def compute_perplexity(self, loss):
@@ -250,6 +224,7 @@ class Trainer:
                 # free tensors immediately
                 del logits, loss
                 torch.cuda.empty_cache()
+                gc.collect()
         return total_loss / total_tokens
     
     def save_model(self, path):
@@ -265,6 +240,8 @@ class Trainer:
         for epoch in tqdm.tqdm(range(epochs)):
             print(f'Epoch {epoch + 1}/{epochs}')
             train_loss = self.train_one_epoch()
+            torch.cuda.empty_cache()
+            gc.collect()
             print(f'Train Loss: {train_loss:.4f}')
             val_loss = self.validate()
             val_ppl = self.compute_perplexity(torch.tensor(val_loss))
