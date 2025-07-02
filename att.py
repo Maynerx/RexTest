@@ -5,6 +5,9 @@ from einops import rearrange
 from utils import scaled_dot_product_attention_grouped, apply_rotary_emb, precompute_freq_cis
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
+torch.backends.cuda.enable_flash_sdp(True)
+print(torch.backends.cuda.flash_sdp_enabled())
+
 
 ATTENTION_TYPE = ['MHA', 'GQA', 'MLA']
 
@@ -88,7 +91,6 @@ class GroupedQueryAttention(nn.Module):
         self.head_dim = dim // query_heads
 
         self.flash_attention = flash_attention
-        print(self.flash_attention)
 
         self.apply_rotary = apply_rotary
         if self.apply_rotary:
@@ -114,13 +116,15 @@ class GroupedQueryAttention(nn.Module):
         #v = rearrange(v, "b n (h d) -> b n h d", h=self.kv_heads)
 
         if self.apply_rotary:
-            freqs = self.freqs_cis 
-            freqs.to(q.device)
+            self.freqs_cis = self.freqs_cis.to(query.device)
             q = apply_rotary_emb(q, self.freqs_cis[:q.size(1)])
             k = apply_rotary_emb(k, self.freqs_cis[:k.size(1)])
 
         if self.flash_attention:
-            with sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
+            q.permute(0, 2, 1, 3).contiguous()  # (B, Hq, Nq, Dq)
+            k.permute(0, 2, 1, 3).contiguous()  # 
+            v.permute(0, 2, 1, 3).contiguous()  # (B, Hv, Nv, Dv)
+            with torch.nn.attention.sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
                 out = F.scaled_dot_product_attention(
                 query=q,
                 key=k,
