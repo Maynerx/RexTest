@@ -121,12 +121,9 @@ class GroupedQueryAttention(nn.Module):
             k = apply_rotary_emb(k, self.freqs_cis[:k.size(1)])
 
         if self.flash_attention:
-            if k.size(1) != q.size(1):
-                repeat = q.size(1) // k.size(1)
-                k = k.unsqueeze(1).expand(-1, repeat, -1, -1, -1)
-                v = v.unsqueeze(1).expand(-1, repeat, -1, -1, -1)
-                k = k.reshape(bq, hq, nq, self.head_dim)
-                v = v.reshape(bq, hq, nq, self.head_dim)
+            #q = q.permute(0, 2, 1, 3).contiguous()  # (B, Hq, Nq, Dq)
+            #k = k.permute(0, 2, 1, 3).contiguous()  # 
+            #v = v.permute(0, 2, 1, 3).contiguous()  # (B, Hv, Nv, Dv)
             with torch.nn.attention.sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
                 out = F.scaled_dot_product_attention(
                 query=q,
@@ -138,7 +135,7 @@ class GroupedQueryAttention(nn.Module):
                 scale=self.scale,
                 enable_gqa=True
                 )
-            out = out.permute(0, 2, 1, 3).contiguous()  # (B, Nq, Hq, Dq)
+            #out = out.permute(0, 2, 1, 3).contiguous()  # (B, Nq, Hq, Dq)
         else:
             out = scaled_dot_product_attention_grouped(q, k, v, self.scale, self.is_causal)
         out = out.reshape(out.size(0), out.size(1), out.size(2) * out.size(3))  # Flatten the heads
