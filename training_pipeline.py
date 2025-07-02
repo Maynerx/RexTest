@@ -47,8 +47,7 @@ class Trainer:
             self.model,
             backend="inductor",       # default; good general‑purpose
             mode="max-autotune",      # autotune kernels for best throughput
-            fullgraph=True ,
-            disable_cudagraphs=True           # fuse across forward+backward
+            fullgraph=True
         )
         self.model.to(DEVICE1)
         self.teacher_model.to(DEVICE2)
