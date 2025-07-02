@@ -124,7 +124,7 @@ class GroupedQueryAttention(nn.Module):
             #q = q.permute(0, 2, 1, 3).contiguous()  # (B, Hq, Nq, Dq)
             #k = k.permute(0, 2, 1, 3).contiguous()  # 
             #v = v.permute(0, 2, 1, 3).contiguous()  # (B, Hv, Nv, Dv)
-            with torch.nn.attention.sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
+            with torch.nn.attention.sdpa_kernel(SDPBackend.MATH):
                 out = F.scaled_dot_product_attention(
                 query=q,
                 key=k,
