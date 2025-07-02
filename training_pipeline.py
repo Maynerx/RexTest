@@ -1,4 +1,5 @@
 
+
 """
 TODO:
 - Implement a Text class for handling text data.
@@ -46,7 +47,8 @@ class Trainer:
             self.model,
             backend="inductor",       # default; good general‑purpose
             mode="max-autotune",      # autotune kernels for best throughput
-            fullgraph=True            # fuse across forward+backward
+            fullgraph=True ,
+            disable_cudagraphs=True           # fuse across forward+backward
         )
         self.model.to(DEVICE1)
         self.teacher_model.to(DEVICE2)
@@ -231,21 +233,25 @@ class Trainer:
         return total_loss / total_tokens
 
     def validate(self):
-        """Validate the model on the validation dataset"""
         self.model.eval()
         total_loss = 0.0
-        count = 0
+        total_tokens = 0
         with torch.no_grad():
             for batch in self.val_loader:
-                ids = batch['input_ids'].to(DEVICE1)
-                labels = batch['labels'].to(DEVICE1)
-                with torch.autocast(device_type='cuda', dtype=torch.float16):
+                ids = batch["input_ids"].to(DEVICE1)
+                labels = batch["labels"].to(DEVICE1)
+                with torch.autocast("cuda", dtype=torch.float16):
                     logits = self.model(ids, ids)
-                    loss = self.criterion(logits.view(-1, logits.size(-1)), labels.view(-1))
-                total_loss += loss.item()
-                count += 1
-        torch.cuda.empty_cache()  # Clear cache to free up memory
-        return total_loss / count
+                    loss = self.criterion(
+                        logits.view(-1, logits.size(-1)),
+                        labels.view(-1)
+                    )
+                total_loss += loss.item() * labels.numel()
+                total_tokens += labels.numel()
+                # free tensors immediately
+                del logits, loss
+                torch.cuda.empty_cache()
+        return total_loss / total_tokens
     
     def save_model(self, path):
         """Save the model to the specified path"""
