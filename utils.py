@@ -95,7 +95,7 @@ def scaled_dot_product_attention_grouped_flash(
         value=v,
         attn_bias=attn_bias,
         scale=scale,
-        op=FlashOp()
+        op=[FlashOp()]
     )
     out = out.permute(0, 2, 1, 3)
 
