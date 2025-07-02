@@ -88,6 +88,7 @@ class GroupedQueryAttention(nn.Module):
         self.head_dim = dim // query_heads
 
         self.flash_attention = flash_attention
+        print(self.flash_attention)
 
         self.apply_rotary = apply_rotary
         if self.apply_rotary:
