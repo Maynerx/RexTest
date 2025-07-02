@@ -118,7 +118,8 @@ class Trainer:
         with torch.no_grad():
             for _ in tqdm.tqdm(range(num_batches)):
                 ids = next(it)['input_ids'].to(DEVICE1)
-                _ = self.model(ids, ids)
+                 with torch.autocast(device_type='cuda', dtype=torch.float16):
+                    _ = self.model(ids, ids)
                 _ = self.teacher_model(ids.to(DEVICE2))
         print(f"Warmup complete: {num_batches} inference batches and 1 training batch.")
         torch.cuda.empty_cache()
