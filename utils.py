@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import einsum, rearrange
-
+from xformers.ops import memory_efficient_attention
+from xformers.ops.fmha.attn_bias import LowerTriangularMask
 
 def scaled_dot_product_attention_grouped(
         queries: torch.Tensor,
