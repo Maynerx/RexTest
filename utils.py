@@ -7,7 +7,8 @@ from einops import einsum, rearrange
 #from xformers.ops.fmha.cutlass import FwOp as CutlassFwOp, BwOp as CutlassBwOp
 #from torch.nn.attention import SDPBackend, sdpa_kernel
 from flash_attn_triton import FlashAttention
-
+import io, sys
+from contextlib import redirect_stdout
 
 
 def scaled_dot_product_attention_grouped(
@@ -89,15 +90,16 @@ def scaled_dot_product_attention_grouped_flash(
     flash_attn = FlashAttention(softmax_scale=scale)
 
 
-    repeat = hq // hk
-    k = k.repeat_interleave(repeat, dim=2)  # (B, hq, Tk, d)
-    v = v.repeat_interleave(repeat, dim=2)  # (B, hq, Tv, d)
+    #repeat = hq // hk
+    #k = k.repeat_interleave(repeat, dim=2)  # (B, hq, Tk, d)
+    #v = v.repeat_interleave(repeat, dim=2)  # (B, hq, Tv, d)
 
     #q = q.permute(0, 2, 1, 3)  # (B, nq, hq, dq)
     #k = k.permute(0, 2, 1, 3)  # (B, nk, hk, dk)
     #v = v.permute(0, 2, 1, 3)
-
-    out = flash_attn(q, k, v, causal=is_causal)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        out = flash_attn(q, k, v, causal=is_causal)
     #out = out.permute(0, 2, 1, 3)
 
     return out
