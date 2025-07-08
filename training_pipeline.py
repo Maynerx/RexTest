@@ -224,9 +224,9 @@ class Trainer:
             #teacher_probs = teacher_probs.cpu() # Offload to CPU to save GPU memory
             raw_ids  = batch['input_ids'].to(DEVICE1)
             ids = raw_ids.clone().detach()
-            torch.compiler.cudagraph_mark_step_begin()
             with torch.autocast(device_type='cuda', dtype=torch.float16):
                 #latent = self.model.encoder(ids)
+                torch.compiler.cudagraph_mark_step_begin()
                 student_logits = self.model(ids, ids) #self.model.decoder(ids, latent)
                 loss_ce = self.criterion(student_logits.view(-1, student_logits.size(-1)), labels.view(-1))
                 log_ps = torch.log_softmax(student_logits / self.temperature, dim=-1)
@@ -277,6 +277,7 @@ class Trainer:
                 ids = batch["input_ids"].to(DEVICE1)
                 labels = batch["labels"].to(DEVICE1)
                 with torch.autocast("cuda", dtype=torch.float16):
+                    torch.compiler.cudagraph_mark_step_begin()
                     logits = self.model(ids, ids)
                     loss = self.criterion(
                         logits.view(-1, logits.size(-1)),
