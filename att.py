@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
-from utils import scaled_dot_product_attention_grouped, apply_rotary_emb, precompute_freq_cis, scaled_dot_product_attention_grouped_flash
+from utils import scaled_dot_product_attention_grouped, apply_rotary_emb, precompute_freq_cis, scaled_dot_product_attention_grouped_flash, scaled_dot_product_attention_grouped_flash_fix
 from torch.nn.attention import SDPBackend, sdpa_kernel
 import torch._dynamo
 
@@ -126,7 +126,7 @@ class GroupedQueryAttention(nn.Module):
             #q = q.permute(0, 2, 1, 3).contiguous()  # (B, Hq, Nq, Dq)
             #k = k.permute(0, 2, 1, 3).contiguous()  # 
             #v = v.permute(0, 2, 1, 3).contiguous()  # (B, Hv, Nv, Dv)
-            out = scaled_dot_product_attention_grouped_flash(q, k, v, self.scale, self.is_causal)
+            out = scaled_dot_product_attention_grouped_flash_fix(q, k, v, self.scale, self.is_causal)
             """
             with torch.nn.attention.sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
                 out = F.scaled_dot_product_attention(
