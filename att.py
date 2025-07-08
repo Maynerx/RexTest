@@ -116,9 +116,9 @@ class GroupedQueryAttention(nn.Module):
         #v = rearrange(v, "b n (h d) -> b n h d", h=self.kv_heads)
 
         if self.apply_rotary:
-            self.freqs_cis = self.freqs_cis.to(query.device)
-            q = apply_rotary_emb(q, self.freqs_cis[:q.size(1)])
-            k = apply_rotary_emb(k, self.freqs_cis[:k.size(1)])
+            freqs_cis = self.freqs_cis.to(query.device)
+            q = apply_rotary_emb(q, freqs_cis[:q.size(1)])
+            k = apply_rotary_emb(k, freqs_cis[:k.size(1)])
 
         if self.flash_attention:
             #q = q.permute(0, 2, 1, 3).contiguous()  # (B, Hq, Nq, Dq)
