@@ -210,7 +210,6 @@ class Trainer:
         self.teacher_model.eval()
         accumlated_gradients = 0
         batch_count = 0
-        total_tokens = 0
         cum_loss_ce = 0.0
         cum_tokens = 0
         self.optimizer.zero_grad()
@@ -221,7 +220,8 @@ class Trainer:
             teacher_probs = teacher_probs.cpu() # Offload to CPU to save GPU memory
             ids = ids.to(DEVICE1)  # Move ids to the student model's device
             with torch.autocast(device_type='cuda', dtype=torch.float16):
-                student_logits = self.model(ids, ids)
+                latent = self.model.encoder(ids)
+                student_logits = self.model.decoder(ids, latent)
                 loss_ce = self.criterion(student_logits.view(-1, student_logits.size(-1)), labels.view(-1))
                 log_ps = torch.log_softmax(student_logits / self.temperature, dim=-1)
                 loss_kl = self.kl_divergence(log_ps, teacher_probs.to(DEVICE1)) * self.temperature**2
