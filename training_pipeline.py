@@ -45,14 +45,15 @@ class Trainer:
                 ):
         self.model = student_model
         self.teacher_model = teacher_model
+        """
+        #self.model.to(DEVICE1)
+        #self.teacher_model.to(DEVICE2)
         self.model = torch.compile(
             self.model,
             backend="inductor",       # default; good general‑purpose
             mode="max-autotune",      # autotune kernels for best throughput
             fullgraph=True  # fullgraph=True is needed for backward pass
         )
-        self.model.to(DEVICE1)
-        self.teacher_model.to(DEVICE2)
         self.teacher_model.half()
         self.teacher_model = torch.compile(
             self.teacher_model,
@@ -60,6 +61,7 @@ class Trainer:
             mode="max-autotune",
             fullgraph=False  # no backward, so no need for fullgraph
         )
+        """
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
         self.batch_size = batch_size
