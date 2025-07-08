@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from einops import rearrange
 from utils import scaled_dot_product_attention_grouped, apply_rotary_emb, precompute_freq_cis, scaled_dot_product_attention_grouped_flash
 from torch.nn.attention import SDPBackend, sdpa_kernel
+from torch._dynamo import disable
 
 #torch.backends.cuda.enable_flash_sdp(True)
 torch.backends.cuda.enable_mem_efficient_sdp(True)
@@ -98,6 +99,7 @@ class GroupedQueryAttention(nn.Module):
 
         self.scale = self.head_dim**-0.5
 
+    @disable
     def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
         q = self.q_proj(query)
         k = self.k_proj(key)
