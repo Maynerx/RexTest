@@ -99,7 +99,7 @@ class GroupedQueryAttention(nn.Module):
 
         self.scale = self.head_dim**-0.5
 
-    @torch._dynamo.disable
+    #@torch._dynamo.disable
     def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
         q = self.q_proj(query)
         k = self.k_proj(key)
