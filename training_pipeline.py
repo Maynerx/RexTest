@@ -49,7 +49,7 @@ class Trainer:
             self.model,
             backend="inductor",       # default; good general‑purpose
             mode="max-autotune",      # autotune kernels for best throughput
-            fullgraph=False
+            fullgraph=True  # fullgraph=True is needed for backward pass
         )
         self.model.to(DEVICE1)
         self.teacher_model.to(DEVICE2)
@@ -220,8 +220,8 @@ class Trainer:
             teacher_probs = teacher_probs.cpu() # Offload to CPU to save GPU memory
             ids = ids.to(DEVICE1)  # Move ids to the student model's device
             with torch.autocast(device_type='cuda', dtype=torch.float16):
-                latent = self.model.encoder(ids)
-                student_logits = self.model.decoder(ids, latent)
+                #latent = self.model.encoder(ids)
+                student_logits = self.model(ids, ids) #self.model.decoder(ids, latent)
                 loss_ce = self.criterion(student_logits.view(-1, student_logits.size(-1)), labels.view(-1))
                 log_ps = torch.log_softmax(student_logits / self.temperature, dim=-1)
                 loss_kl = self.kl_divergence(log_ps, teacher_probs.to(DEVICE1)) * self.temperature**2
@@ -248,7 +248,7 @@ class Trainer:
                 avg_ce = cum_loss_ce / cum_tokens
                 val_loss = self.validate()
                 print(f"[step {batch_count}] train CE={avg_ce:.4f}  val CE={val_loss:.4f}  Perplexity={self.compute_perplexity(torch.tensor(val_loss)):.4f}  "
-                    f"tokens={self.current_amount_of_tokens}/{self.total_amount_of_tokens} ({(self.current_amount_of_tokens / self.total_amount_of_tokens) * 100:.2%} )")
+                    f"tokens={self.current_amount_of_tokens}/{self.total_amount_of_tokens} ({(self.current_amount_of_tokens / self.total_amount_of_tokens):.2%})")
                 cum_loss_ce = cum_tokens = 0
         
         if accumlated_gradients > 0:
@@ -323,7 +323,7 @@ class Trainer:
 
 
     def fit(self):
-        self.models_warmup(num_batches=10)
+        #self.models_warmup(num_batches=10)
         print('Starting training...')
         self.train_continued()
         print('Training complete.')
