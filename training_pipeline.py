@@ -248,7 +248,7 @@ class Trainer:
                 avg_ce = cum_loss_ce / cum_tokens
                 val_loss = self.validate()
                 print(f"[step {batch_count}] train CE={avg_ce:.4f}  val CE={val_loss:.4f}  Perplexity={self.compute_perplexity(torch.tensor(val_loss)):.4f}  "
-                    f"tokens={self.current_amount_of_tokens}/{self.total_amount_of_tokens}")
+                    f"tokens={self.current_amount_of_tokens}/{self.total_amount_of_tokens} ({(self.current_amount_of_tokens / self.total_amount_of_tokens) * 100:.2%} )")
                 cum_loss_ce = cum_tokens = 0
         
         if accumlated_gradients > 0:
