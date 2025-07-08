@@ -88,13 +88,13 @@ def scaled_dot_product_attention_grouped_flash(
     if is_causal:
         attn_bias = LowerTriangularMask(device=q.device, dtype=q.dtype)
     
+    q = q * scale
 
     out = memory_efficient_attention(
         query=q,
         key=k,
         value=v,
         attn_bias=attn_bias,
-        scale=scale,
         op=[CutlassFwOp(), CutlassBwOp()],
     )
     out = out.permute(0, 2, 1, 3)
