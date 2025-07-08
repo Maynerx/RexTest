@@ -168,6 +168,8 @@ class Trainer:
             teacher_probs = self.teacher_predict(ids)
             teacher_probs = teacher_probs.cpu() # Offload to CPU to save GPU memory
             ids = ids.to(DEVICE1)  # Move ids to the student model's device
+            
+            
             with torch.autocast(device_type='cuda', dtype=torch.float16):
                 latent = self.model.encoder(ids)
                 student_logits = self.model.decoder(ids, latent)
@@ -221,6 +223,7 @@ class Trainer:
             teacher_probs = self.teacher_predict(ids)
             #teacher_probs = teacher_probs.cpu() # Offload to CPU to save GPU memory
             ids = ids.to(DEVICE1)  # Move ids to the student model's device
+            torch.compiler.cudagraph_mark_step_begin()
             with torch.autocast(device_type='cuda', dtype=torch.float16):
                 #latent = self.model.encoder(ids)
                 student_logits = self.model(ids, ids) #self.model.decoder(ids, latent)
