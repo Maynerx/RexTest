@@ -49,7 +49,8 @@ class EncoderLayer(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.norm_attn_in(x)
-        attn_output = self.attn_dropout(self.attention(x, x, x))
+        attn_output_ = self.attention(x, x, x)
+        attn_output = self.attn_dropout(attn_output_)
         x = x + attn_output
         x = self.norm_attn_out(x)
         x = self.norm_mlp_in(x)
