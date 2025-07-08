@@ -149,3 +149,4 @@ class GroupedQueryAttention(nn.Module):
         return out
 
 
+GroupedQueryAttention = disable(GroupedQueryAttention)
