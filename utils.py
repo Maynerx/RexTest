@@ -5,7 +5,9 @@ from einops import einsum, rearrange
 from xformers.ops import memory_efficient_attention
 from xformers.ops.fmha.attn_bias import LowerTriangularMask
 from xformers.ops.fmha.cutlass import FwOp as CutlassFwOp, BwOp as CutlassBwOp
+from torch._dynamo import disable
 
+@disable
 def scaled_dot_product_attention_grouped(
         queries: torch.Tensor,
         keys: torch.Tensor, 
@@ -51,7 +53,7 @@ def scaled_dot_product_attention_grouped(
     out = rearrange(out, 'b g h n d -> b n (g h) d')
     return out
 
-
+@disable
 def scaled_dot_product_attention_grouped_flash(
         queries: torch.Tensor,
         keys: torch.Tensor, 
