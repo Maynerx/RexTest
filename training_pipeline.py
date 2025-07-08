@@ -33,7 +33,8 @@ class Trainer:
                 student_model,
                 teacher_model,
                 train_dataset: Dataset,
-                val_dataset: Dataset, 
+                val_dataset: Dataset,
+                print_every: int = 5000, 
                 num_epochs=10,
                 batch_size=32, 
                 learning_rate=5e-5,
@@ -64,6 +65,7 @@ class Trainer:
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.total_amount_of_tokens = self.count_number_of_tokens()
+        self.amount_of_tokens = 0
         self.current_amount_of_tokens = 0
         self.end_training = False
         self.last_validation_perplexity = float('inf')
@@ -72,6 +74,7 @@ class Trainer:
         self.alpha = alpha  # Weight for distillation loss
         self.beta = beta  # Weight for cross-entropy loss
         self.grad_accumulation_steps = grad_accumulation_steps
+        self.print_every = print_every
         
         self.train_loader = DataLoader(train_dataset, batch_size=batch_size//grad_accumulation_steps, shuffle=True)
         self.val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
@@ -153,9 +156,7 @@ class Trainer:
         '''Assume that two GPU devices are available for training.'''
         self.model.train()
         self.teacher_model.eval()
-
         total_loss = 0.0
-        count = 0
         accumlated_gradients = 0
         total_tokens = 0
         self.optimizer.zero_grad()
@@ -181,7 +182,6 @@ class Trainer:
             total_loss += loss_ce.item() * n_tokens
             total_tokens += n_tokens
             self.current_amount_of_tokens += ids.numel()
-            count += 1
 
             if accumlated_gradients % self.grad_accumulation_steps == 0:
                 self.scaler.unscale_(self.optimizer)
@@ -192,8 +192,7 @@ class Trainer:
                 self.scheduler.step()  # Update learning rate
             
             
-            if self.current_amount_of_tokens % self.total_amount_of_tokens // 10 == 0:
-                print(f'Current loss: {total_loss / count:.4f}, Tokens processed: {self.current_amount_of_tokens}/{self.total_amount_of_tokens}')
+            
 
         if accumlated_gradients > 0:
             self.scaler.unscale_(self.optimizer)
@@ -205,6 +204,63 @@ class Trainer:
 
         torch.cuda.empty_cache()  # Clear cache to free up memory
         return total_loss / total_tokens
+    
+    def train_continued(self):
+        self.model.train()
+        self.teacher_model.eval()
+        accumlated_gradients = 0
+        batch_count = 0
+        total_tokens = 0
+        cum_loss_ce = 0.0
+        cum_tokens = 0
+        self.optimizer.zero_grad()
+        for batch in tqdm.tqdm(self.train_loader):
+            ids = batch['input_ids'].to(DEVICE2)
+            labels = batch['labels'].to(DEVICE1)
+            teacher_probs = self.teacher_predict(ids)
+            teacher_probs = teacher_probs.cpu() # Offload to CPU to save GPU memory
+            ids = ids.to(DEVICE1)  # Move ids to the student model's device
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+                student_logits = self.model(ids, ids)
+                loss_ce = self.criterion(student_logits.view(-1, student_logits.size(-1)), labels.view(-1))
+                log_ps = torch.log_softmax(student_logits / self.temperature, dim=-1)
+                loss_kl = self.kl_divergence(log_ps, teacher_probs.to(DEVICE1)) * self.temperature**2
+                loss = self.alpha * loss_ce + self.beta * loss_kl
+            self.scaler.scale(loss).backward()
+            accumlated_gradients += 1
+            n_tokens = labels.numel()
+            batch_count += 1
+            
+            cum_loss_ce += loss_ce.item() * n_tokens
+            cum_tokens  += n_tokens
+            self.current_amount_of_tokens += ids.numel()
+
+            if accumlated_gradients % self.grad_accumulation_steps == 0:
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)  # Gradient clipping
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer.zero_grad()
+                self.scheduler.step()  # Update learning rate
+                accumlated_gradients = 0
+
+            if batch_count % self.print_every == 0:
+                avg_ce = cum_loss_ce / cum_tokens
+                val_loss = self.validate()
+                print(f"[step {batch_count}] train CE={avg_ce:.4f}  val CE={val_loss:.4f}  Perplexity={self.compute_perplexity(torch.tensor(val_loss)):.4f}  "
+                    f"tokens={self.current_amount_of_tokens}/{self.total_amount_of_tokens}")
+                cum_loss_ce = cum_tokens = 0
+        
+        if accumlated_gradients > 0:
+            self.scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+            self.optimizer.zero_grad()
+            self.scheduler.step()
+
+
+        
 
     def validate(self):
         self.model.eval()
@@ -262,5 +318,13 @@ class Trainer:
                 self.save_model(f'model_epoch_{epoch + 1}.pt')
                 print('Early stopping triggered.')
                 break
+        print('Training complete.')
+        self.save_model('final_model.pt')
+
+
+    def fit(self):
+        self.models_warmup(num_batches=10)
+        print('Starting training...')
+        self.train_continued()
         print('Training complete.')
         self.save_model('final_model.pt')
