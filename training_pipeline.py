@@ -155,6 +155,15 @@ class Trainer:
             self.scaler.update()
             self.optimizer.zero_grad()
             self.scheduler.step()
+
+        it2 = iter(self.train_loader)
+        model.eval()
+        with torch.no_grad():
+            for _ in tqdm.tqdm(range(num_batches), desc="Warming up (Eval)"):
+                ids = next(it2)['input_ids']
+                with torch.autocast(device_type='cuda', dtype=torch.float16):
+                    _ = self.model(ids, ids)
+                    
     
         print(f"Warmup complete: {num_batches} batches compiled & optimized.")
         torch.cuda.empty_cache()
@@ -178,10 +187,11 @@ class Trainer:
     def teacher_predict(self, ids):
         """Predict logits using the teacher model"""
         self.teacher_model.eval()
-        with torch.no_grad():
+        with torch.inference_mode():
             ids = ids.to(self.teacher_model.device)
             logits = self.teacher_model(ids).logits
             teacher_probs = teacher_probs = F.softmax(logits / self.temperature, dim=-1) 
+        teacher_probs = teacher_probs.clone().detach()
         return teacher_probs
 
     def train_one_epoch(self):
