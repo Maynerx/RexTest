@@ -112,24 +112,51 @@ class Trainer:
 
     def models_warmup(self, num_batches: int = 10):
         """
-        Warm up both student and teacher models by running a few forward passes
-        (for compilation, tracing & cache) prior to training.
-
+        Warm up both student and teacher models by running a few forward + backward + optimizer passes
+        to trigger compilation and CUDA graph caching.
+    
         Args:
             num_batches (int): Number of batches to use for warmup (default: 10).
         """
-        # Set correct modes
-        self.model.eval()
+        self.model.train()
         self.teacher_model.eval()
-
+    
         it = iter(self.train_loader)
-        with torch.no_grad():
-            for _ in tqdm.tqdm(range(num_batches)):
-                ids = next(it)['input_ids'].to(DEVICE1)
-                with torch.autocast(device_type='cuda', dtype=torch.float16):
-                    _ = self.model(ids, ids)
-                _ = self.teacher_model(ids.to(DEVICE2))
-        print(f"Warmup complete: {num_batches} inference batches and 1 training batch.")
+        self.optimizer.zero_grad()
+        self.scaler = getattr(self, "scaler", torch.cuda.amp.GradScaler())
+    
+        for _ in tqdm.tqdm(range(num_batches), desc="Warming up"):
+            batch = next(it)
+    
+            # Teacher input (different device)
+            ids_for_teacher = batch["input_ids"].to(DEVICE2).clone().detach().contiguous()
+    
+            # Student input (training device)
+            ids = batch["input_ids"].to(DEVICE1).clone().detach().contiguous()
+            labels = batch["labels"].to(DEVICE1)
+    
+            with torch.no_grad():
+                teacher_logits = self.teacher_model(ids_for_teacher).logits
+                teacher_probs = F.softmax(teacher_logits / self.temperature, dim=-1)
+    
+            torch.compiler.cudagraph_mark_step_begin()
+    
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+                student_logits = self.model(ids, ids)
+                loss_ce = self.criterion(student_logits.view(-1, student_logits.size(-1)), labels.view(-1))
+                log_ps = torch.log_softmax(student_logits / self.temperature, dim=-1)
+                loss_kl = self.kl_divergence(log_ps, teacher_probs.to(DEVICE1)) * self.temperature**2
+                loss = self.alpha * loss_ce + self.beta * loss_kl
+    
+            self.scaler.scale(loss).backward()
+            self.scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+            self.optimizer.zero_grad()
+            self.scheduler.step()
+    
+        print(f"Warmup complete: {num_batches} batches compiled & optimized.")
         torch.cuda.empty_cache()
         gc.collect()
 
@@ -334,7 +361,7 @@ class Trainer:
 
 
     def fit(self):
-        #self.models_warmup(num_batches=10)
+        self.models_warmup(num_batches=20)
         print('Starting training...')
         self.train_continued()
         print('Training complete.')
