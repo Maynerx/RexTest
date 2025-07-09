@@ -24,6 +24,7 @@ import math
 import torch.nn.functional as F
 from transformers import get_cosine_schedule_with_warmup
 import gc
+import bitsandbytes as bnb
 
 DEVICE1 = 'cuda:0'
 DEVICE2 = 'cuda:1'
@@ -81,7 +82,9 @@ class Trainer:
         self.train_loader = DataLoader(train_dataset, batch_size=batch_size//grad_accumulation_steps, shuffle=True)
         self.val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
         
-        self.optimizer = torch.optim.AdamW(student_model.parameters(), lr=learning_rate)
+        self.optimizer = bnb.optim.AdamW8bit(
+            self.model.parameters(), lr=learning_rate
+        )
 
         steps_per_epoch = math.ceil(len(self.train_loader) / self.grad_accumulation_steps)
         total_steps    = steps_per_epoch * num_epochs
@@ -180,7 +183,6 @@ class Trainer:
                 assert not math.isnan(loss_kl), f"KL loss is NaN: {loss_kl.item()}"
                 loss = self.alpha * loss_ce + self.beta * loss_kl
             self.scaler.scale(loss).backward(retain_graph=True)
-            print(True)
             accumlated_gradients += 1
             n_tokens = labels.numel()
             
@@ -239,7 +241,6 @@ class Trainer:
             accumlated_gradients += 1
             n_tokens = labels.numel()
             batch_count += 1
-            print(True)
             cum_loss_ce += loss_ce.item() * n_tokens
             cum_tokens  += n_tokens
             self.current_amount_of_tokens += ids_for_student.numel()
