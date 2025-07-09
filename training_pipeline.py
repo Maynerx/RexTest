@@ -239,7 +239,7 @@ class Trainer:
             accumlated_gradients += 1
             n_tokens = labels.numel()
             batch_count += 1
-            
+            print(True)
             cum_loss_ce += loss_ce.item() * n_tokens
             cum_tokens  += n_tokens
             self.current_amount_of_tokens += ids_for_student.numel()
