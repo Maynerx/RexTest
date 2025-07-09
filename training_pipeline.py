@@ -180,6 +180,7 @@ class Trainer:
                 assert not math.isnan(loss_kl), f"KL loss is NaN: {loss_kl.item()}"
                 loss = self.alpha * loss_ce + self.beta * loss_kl
             self.scaler.scale(loss).backward(retain_graph=True)
+            print(True)
             accumlated_gradients += 1
             n_tokens = labels.numel()
             
