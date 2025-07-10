@@ -294,6 +294,7 @@ class Trainer:
             if batch_count % self.print_every == 0:
                 avg_ce = cum_loss_ce / cum_tokens
                 val_loss = self.validate()
+                self.model.train()
                 print(f"[step {batch_count}] train CE={avg_ce:.4f}  val CE={val_loss:.4f}  Perplexity={self.compute_perplexity(torch.tensor(val_loss)):.4f}  "
                     f"tokens={self.current_amount_of_tokens}/{self.total_amount_of_tokens} ({(self.current_amount_of_tokens / self.total_amount_of_tokens):.2%})")
                 cum_loss_ce = cum_tokens = 0
