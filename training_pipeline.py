@@ -260,13 +260,13 @@ class Trainer:
         for batch in tqdm.tqdm(self.train_loader):
             raw_ids = batch['input_ids']
             # Make independent tensors for each GPU
-            ids_for_teacher = raw_ids.to(DEVICE2).clone().detach().contiguous()
-            ids_for_student = raw_ids.to(DEVICE1).clone().detach().contiguous()
+            ids_for_teacher = raw_ids.to(DEVICE2)
+            ids_for_student = raw_ids.to(DEVICE1)
             labels = batch['labels'].to(DEVICE1)
             
             teacher_probs = self.teacher_predict(ids_for_teacher)
 
-            torch.compiler.cudagraph_mark_step_begin()
+            #torch.compiler.cudagraph_mark_step_begin()
             with torch.autocast(device_type='cuda', dtype=torch.float16):
                 #latent = self.model.encoder(ids)
                 student_logits = self.model(ids_for_student, ids_for_student) #self.model.decoder(ids, latent)
