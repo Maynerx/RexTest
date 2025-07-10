@@ -266,7 +266,7 @@ class Trainer:
             
             teacher_probs = self.teacher_predict(ids_for_teacher)
 
-            #torch.compiler.cudagraph_mark_step_begin()
+            torch.compiler.cudagraph_mark_step_begin()
             with torch.autocast(device_type='cuda', dtype=torch.float16):
                 #latent = self.model.encoder(ids)
                 student_logits = self.model(ids_for_student, ids_for_student) #self.model.decoder(ids, latent)
