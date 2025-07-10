@@ -160,7 +160,7 @@ class Trainer:
         self.model.eval()
         with torch.no_grad():
             for _ in tqdm.tqdm(range(num_batches), desc="Warming up (Eval)"):
-                ids = next(it2)['input_ids']
+                ids = next(it2)['input_ids'].to(DEVICE1)
                 with torch.autocast(device_type='cuda', dtype=torch.float16):
                     _ = self.model(ids, ids)
                     
