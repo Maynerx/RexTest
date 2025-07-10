@@ -157,7 +157,7 @@ class Trainer:
             self.scheduler.step()
 
         it2 = iter(self.train_loader)
-        model.eval()
+        self.model.eval()
         with torch.no_grad():
             for _ in tqdm.tqdm(range(num_batches), desc="Warming up (Eval)"):
                 ids = next(it2)['input_ids']
