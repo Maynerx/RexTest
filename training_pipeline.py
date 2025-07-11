@@ -137,6 +137,7 @@ class Trainer:
     
             with torch.no_grad():
                 teacher_logits = self.teacher_model(ids_for_teacher).logits
+                print("teacher shape:", teacher_logits.shape)
                 teacher_probs = F.softmax(teacher_logits / self.temperature, dim=-1)
     
             torch.compiler.cudagraph_mark_step_begin()
