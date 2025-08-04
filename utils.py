@@ -194,7 +194,12 @@ def apply_rotary_emb(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
     x_out = torch.view_as_real(x_rotated)          # [B, H, N, D/2, 2]
     return x_out.reshape(B, H, N, D).to(x.dtype)   # [B, H, N, D]
 
-
+def apply_rotary_emb_grouped(x, freqs_cis):
+    # x: [B, N, H, D]
+    B, N, H, D = x.shape
+    x = x.permute(0, 2, 1, 3)                 # → [B, H, N, D]
+    x = apply_rotary_emb(x, freqs_cis[:N])    # core rotary
+    return x.permute(0, 2, 1, 3)   
 
 class MLP(nn.Module):
     def __init__(self, n_embd: int, dropout:int = 0.1):
@@ -219,3 +224,4 @@ class RMSNorm(nn.Module):
 
     def forward(self, x: torch.Tensor):
         return F.rms_norm(x, (self.dim,), self.weight, self.eps)
+
