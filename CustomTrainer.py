@@ -101,8 +101,7 @@ class REXTrainer(Trainer):
     def compute_loss(self, model, inputs, num_items_in_batch=None, return_outputs=False):
         # Move to device & unpack
         inputs = self._prepare_inputs(inputs)
-        print(inputs.keys())
-        inputs_ids = inputs.pop("inputs_ids")
+        inputs_ids = inputs.pop("input_ids")
         labels = inputs.pop("labels")
         top_k_probs   = inputs.pop("top_k_probs")
         top_k_indices = inputs.pop("top_k_indices")
