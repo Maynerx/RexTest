@@ -98,15 +98,16 @@ class REXTrainer(Trainer):
         )
         self.optimizer, self.lr_scheduler = optimizer, scheduler
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, num_items_in_batch=None, return_outputs=False):
         # Move to device & unpack
         inputs = self._prepare_inputs(inputs)
+        inputs_ids = inputs.pop("inputs_ids")
         labels = inputs.pop("labels")
         top_k_probs   = inputs.pop("top_k_probs")
         top_k_indices = inputs.pop("top_k_indices")
 
         # Forward
-        outputs = model(**inputs)
+        outputs = model(inputs_ids)
         logits = outputs.logits
 
         # Cross‑entropy
