@@ -62,6 +62,7 @@ class REXTrainer(Trainer):
             learning_rate=lr,
             weight_decay=weight_decay,
             fp16=True,
+            remove_unused_columns=False,
             report_to="none",
         )
 
