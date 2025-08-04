@@ -107,7 +107,7 @@ class REXTrainer(Trainer):
         top_k_indices = inputs.pop("top_k_indices")
 
         # Forward
-        outputs = model(inputs_ids)
+        outputs = model(inputs_ids, inputs_ids)
         logits = outputs.logits
 
         # Cross‑entropy
