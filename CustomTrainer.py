@@ -51,7 +51,7 @@ class REXTrainer(Trainer):
         # 1) Build TrainingArguments
         args = TrainingArguments(
             output_dir="./results",
-            evaluation_strategy="steps",
+            eval_strategy="steps",
             save_strategy=save_strategy,
             save_steps=save_every_tokens,    # used if save_strategy != "no"
             logging_steps=logging_steps,
