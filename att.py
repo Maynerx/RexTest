@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
-from utils import scaled_dot_product_attention_grouped, apply_rotary_emb, precompute_freq_cis, scaled_dot_product_attention_grouped_flash, scaled_dot_product_attention_grouped_flash_fix
+from utils import scaled_dot_product_attention_grouped, apply_rotary_emb, precompute_freq_cis, scaled_dot_product_attention_grouped_flash, scaled_dot_product_attention_grouped_flash_fix, apply_rotary_emb_grouped
 from torch.nn.attention import SDPBackend, sdpa_kernel
 import torch._dynamo
 
@@ -119,8 +119,8 @@ class GroupedQueryAttention(nn.Module):
 
         if self.apply_rotary:
             freqs_cis = self.freqs_cis.to(query.device)
-            q = apply_rotary_emb(q, freqs_cis[:q.size(1)])
-            k = apply_rotary_emb(k, freqs_cis[:k.size(1)])
+            q = apply_rotary_emb_grouped(q, freqs_cis[:q.size(1)])
+            k = apply_rotary_emb_grouped(k, freqs_cis[:k.size(1)])
 
         if self.flash_attention:
             #q = q.permute(0, 2, 1, 3).contiguous()  # (B, Hq, Nq, Dq)
@@ -147,3 +147,4 @@ class GroupedQueryAttention(nn.Module):
         #out = rearrange(out, "b n h d -> b n (h d)")
         out = self.out_proj(out)
         return out
+
