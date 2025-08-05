@@ -201,7 +201,7 @@ def apply_rotary_emb_grouped(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.
     # freqs_cis: [max_seq_len, D//2, 2]
     B, N, H, D = x.shape
     # 1) view as complex64 [..., D//2]
-    x_complex = x.view(B, N, H, D//2, 2).to(torch.complex64)
+    x_complex = x.view(B, N, H, D//2, 2)
     x_complex = torch.view_as_complex(x_complex)  # [B, N, H, D//2]
 
     # 2) slice freqs to [1, N, 1, D//2]
@@ -239,6 +239,7 @@ class RMSNorm(nn.Module):
 
     def forward(self, x: torch.Tensor):
         return F.rms_norm(x, (self.dim,), self.weight, self.eps)
+
 
 
 
