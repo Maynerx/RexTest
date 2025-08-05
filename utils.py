@@ -180,12 +180,12 @@ def apply_rotary_emb(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
 
     # view last dimension as complex: [..., D/2, 2] -> complex
     x_complex = torch.view_as_complex(
-        x.float().reshape(B, H, N, D // 2, 2)
+        x.float().reshape(B, H, N, D // 2, 2).contiguous()
     )  # complex64 : [B, H, N, D/2]
 
     # slice & broadcast freqs to [1, 1, N, D/2]
     freqs = freqs_cis[:N, :].to(x.device)          # [N, D/2]
-    freqs = freqs.unsqueeze(0).unsqueeze(0)        # [1, 1, N, D/2]
+    freqs = freqs.unsqueeze(0).unsqueeze(0).contiguous()        # [1, 1, N, D/2]
 
     # apply rotation in the complex plane
     print("  x_complex:", x_complex.shape)   # should be [B, N, H, D/2]
@@ -226,5 +226,6 @@ class RMSNorm(nn.Module):
 
     def forward(self, x: torch.Tensor):
         return F.rms_norm(x, (self.dim,), self.weight, self.eps)
+
 
 
