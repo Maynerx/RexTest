@@ -108,7 +108,7 @@ class REXTrainer(Trainer):
 
         # Forward
         outputs = model(inputs_ids, inputs_ids)
-        logits = outputs.logits
+        logits = outputs
 
         # Cross‑entropy
         ce_loss = F.cross_entropy(
