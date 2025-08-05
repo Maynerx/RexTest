@@ -196,7 +196,7 @@ def apply_rotary_emb(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
     x_out = torch.view_as_real(x_rotated)          # [B, H, N, D/2, 2]
     return x_out.reshape(B, H, N, D).to(x.dtype)   # [B, H, N, D]
 
-def apply_rotary_emb_grouped(x: Tensor, freqs_cis: Tensor) -> Tensor:
+def apply_rotary_emb_grouped(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
     # x: [B, N, H, D] with D even
     # freqs_cis: [max_seq_len, D//2, 2]
     B, N, H, D = x.shape
@@ -239,6 +239,7 @@ class RMSNorm(nn.Module):
 
     def forward(self, x: torch.Tensor):
         return F.rms_norm(x, (self.dim,), self.weight, self.eps)
+
 
 
 
