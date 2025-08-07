@@ -81,6 +81,7 @@ class GroupedQueryAttention(nn.Module):
         self.kv_heads = kv_heads
         self.query_heads = query_heads
         self.is_causal = is_causal
+        self.max_length = max_length
         kv_dim = (dim // query_heads) * kv_heads
         
         self.q_proj = nn.Linear(dim, dim)
@@ -110,12 +111,12 @@ class GroupedQueryAttention(nn.Module):
         return q_embed, k_embed
 
     @torch._dynamo.disable()
-    def generate_sin_cos_pos_emb(self, seq_len, device):
+    def generate_sin_cos_pos_emb(self, seq_len, device, rope_theta=10000, rope_factor=8.0):
         base, rope_factor, dim, max_seq_len = (
-            self.config.rope_theta,
-            self.config.rope_factor,
+            rope_theta,
+            rope_factor,
             self.head_dim,
-            self.config.block_size,
+            self.max_length
         )
         inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, device=device).float() / dim))
         if rope_factor > 1.0:  # Apply NTK dynamic scaling
@@ -188,6 +189,7 @@ class GroupedQueryAttention(nn.Module):
         #out = rearrange(out, "b n h d -> b n (h d)")
         out = self.out_proj(out)
         return out
+
 
 
 
