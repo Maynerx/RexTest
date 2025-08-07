@@ -5,25 +5,30 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 class TokenCounterCallback(TrainerCallback):
-    def __init__(self, tokens_target: int, max_seq_length: int, save_every_tokens: int = 100_000):
+    def __init__(self, tokens_target: int, save_every_tokens: int = 100_000):
         self.tokens_seen = 0
         self.tokens_target = tokens_target
         self.save_every_tokens = save_every_tokens
-        self.max_seq_length = max_seq_length
+        self._save_trigger = 0
 
-    def on_step_end(self, args, state, control, model=None, **kwargs):
-        # Estimate how many tokens were seen in this step
-        # Assumes input_ids are the only thing being used
-        train_batch_size = args.per_device_train_batch_size * args.world_size
-        tokens_per_batch = self.max_seq_length * train_batch_size
-        self.tokens_seen += tokens_per_batch
+    def on_step_end(self, args, state, control, **kwargs):
+        # Actual batch from current step
+        inputs = kwargs.get("inputs", None)
+        if inputs is not None and "input_ids" in inputs:
+            input_ids = inputs["input_ids"]
+            batch_tokens = input_ids.numel()
+        else:
+            batch_tokens = 0  # fallback if we can't access input_ids
 
-        # Save checkpoint every N tokens
-        if self.tokens_seen >= self.save_every_tokens:
+        self.tokens_seen += batch_tokens
+        self._save_trigger += batch_tokens
+
+        # Checkpointing
+        if self._save_trigger >= self.save_every_tokens:
             control.should_save = True
-            self.tokens_seen = 0
+            self._save_trigger = 0
 
-        # Stop training if we hit target
+        # Stop condition
         if self.tokens_seen >= self.tokens_target:
             control.should_training_stop = True
 
@@ -83,7 +88,7 @@ class REXTrainer(Trainer):
         self.tokens_target = tokens_target
 
         # 4) Add our token‑counter callback
-        self.add_callback(TokenCounterCallback(tokens_target, max_length, save_every_tokens))
+        self.add_callback(TokenCounterCallback(tokens_target, save_every_tokens))
 
         # 5) Prepare KL loss
         self.kl_loss_fn = nn.KLDivLoss(reduction="batchmean")
