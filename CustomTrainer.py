@@ -42,7 +42,6 @@ class REXTrainer(Trainer):
                  eval_dataset: Dataset = None,
                  tokens_target: int = 1_000_000,
                  save_every_tokens: int = 100_000,
-                 max_length: int = 512,
                  lr: float = 1e-4,
                  temperature: float = 1.0,
                  alpha: float = 0.5,
