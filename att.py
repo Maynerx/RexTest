@@ -99,6 +99,40 @@ class GroupedQueryAttention(nn.Module):
 
         self.scale = self.head_dim**-0.5
 
+    def rotate_half(self, x):
+        x1 = x[..., : x.shape[-1] // 2]
+        x2 = x[..., x.shape[-1] // 2 :]
+        return torch.cat((-x2, x1), dim=-1)
+
+    def apply_rotary_pos_emb(self, q, k, cos, sin):
+        q_embed = (q * cos) + (self.rotate_half(q) * sin)
+        k_embed = (k * cos) + (self.rotate_half(k) * sin)
+        return q_embed, k_embed
+
+    @torch._dynamo.disable()
+    def generate_sin_cos_pos_emb(self, seq_len, device):
+        base, rope_factor, dim, max_seq_len = (
+            self.config.rope_theta,
+            self.config.rope_factor,
+            self.head_dim,
+            self.config.block_size,
+        )
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, device=device).float() / dim))
+        if rope_factor > 1.0:  # Apply NTK dynamic scaling
+            seq_len_eff = max(seq_len, max_seq_len)
+            base_adjustment = ((rope_factor * seq_len_eff / max_seq_len) - (rope_factor - 1)) ** (dim / (dim - 2))
+            adjusted_base = base * base_adjustment
+            inv_freq = 1.0 / (adjusted_base ** (torch.arange(0, dim, 2, device=device).float() / dim))
+
+        position_ids = torch.arange(seq_len, device=device, dtype=torch.float)
+        if not self.is_causal:
+            position_ids = position_ids - ((seq_len - 1) // 2)
+        freqs = torch.einsum("i,j->ij", position_ids, inv_freq)
+        emb = torch.cat((freqs, freqs), dim=-1)
+        cos_emb = emb.cos()[None, None, :, :]
+        sin_emb = emb.sin()[None, None, :, :]
+        return cos_emb, sin_emb
+
     #@torch._dynamo.disable
     def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
         q = self.q_proj(query)
@@ -123,8 +157,11 @@ class GroupedQueryAttention(nn.Module):
             q = apply_rotary_emb_grouped(q, freqs_cis[:q.size(1)])
             k = apply_rotary_emb_grouped(k, freqs_cis[:k.size(1)])
             """
-            q = apply_rotary_emb_grouped(q, freqs_cis)
-            k = apply_rotary_emb_grouped(k, freqs_cis)
+            cos_emb, sin_emb = self.generate_sin_cos_pos_emb(seq_len, device=q.device)
+            cos_emb = cos_emb.to(q.device)
+            sin_emb = sin_emb.to(q.device)
+            q, k = self.apply_rotary_pos_emb(q, k, cos_emb, sin_emb)
+            
 
         if self.flash_attention:
             #q = q.permute(0, 2, 1, 3).contiguous()  # (B, Hq, Nq, Dq)
@@ -151,5 +188,6 @@ class GroupedQueryAttention(nn.Module):
         #out = rearrange(out, "b n h d -> b n (h d)")
         out = self.out_proj(out)
         return out
+
 
 
