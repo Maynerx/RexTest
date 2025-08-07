@@ -157,7 +157,7 @@ class GroupedQueryAttention(nn.Module):
             q = apply_rotary_emb_grouped(q, freqs_cis[:q.size(1)])
             k = apply_rotary_emb_grouped(k, freqs_cis[:k.size(1)])
             """
-            cos_emb, sin_emb = self.generate_sin_cos_pos_emb(seq_len, device=q.device)
+            cos_emb, sin_emb = self.generate_sin_cos_pos_emb(nq, device=q.device)
             cos_emb = cos_emb.to(q.device)
             sin_emb = sin_emb.to(q.device)
             q, k = self.apply_rotary_pos_emb(q, k, cos_emb, sin_emb)
@@ -188,6 +188,7 @@ class GroupedQueryAttention(nn.Module):
         #out = rearrange(out, "b n h d -> b n (h d)")
         out = self.out_proj(out)
         return out
+
 
 
 
