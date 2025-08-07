@@ -65,6 +65,9 @@ class REXTrainer(Trainer):
             per_device_eval_batch_size=per_device_eval_batch_size,
             gradient_accumulation_steps=grad_accumulation_steps,
             num_train_epochs=num_train_epochs,
+            torch_compile=True,                      # Enable compilation
+            torch_compile_backend="inductor",        # Choose backend
+            torch_compile_mode="max-autotune",    # Choose compile mode
             learning_rate=lr,
             weight_decay=weight_decay,
             fp16=True,
@@ -91,6 +94,8 @@ class REXTrainer(Trainer):
 
         # 5) Prepare KL loss
         self.kl_loss_fn = nn.KLDivLoss(reduction="batchmean")
+
+    
 
     def create_optimizer_and_scheduler(self, num_training_steps: int):
         # Optional: custom optimizer/scheduler
