@@ -5,16 +5,17 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 class TokenCounterCallback(TrainerCallback):
-    def __init__(self, tokens_target: int, save_every_tokens: int = 100_000):
+    def __init__(self, tokens_target: int, max_seq_length: int, save_every_tokens: int = 100_000):
         self.tokens_seen = 0
         self.tokens_target = tokens_target
         self.save_every_tokens = save_every_tokens
+        self.max_seq_length = max_seq_length
 
     def on_step_end(self, args, state, control, model=None, **kwargs):
         # Estimate how many tokens were seen in this step
         # Assumes input_ids are the only thing being used
         train_batch_size = args.per_device_train_batch_size * args.world_size
-        tokens_per_batch = args.max_seq_length * train_batch_size
+        tokens_per_batch = self.max_seq_length * train_batch_size
         self.tokens_seen += tokens_per_batch
 
         # Save checkpoint every N tokens
@@ -36,6 +37,7 @@ class REXTrainer(Trainer):
                  eval_dataset: Dataset = None,
                  tokens_target: int = 1_000_000,
                  save_every_tokens: int = 100_000,
+                 max_length: int = 512,
                  lr: float = 1e-4,
                  temperature: float = 1.0,
                  alpha: float = 0.5,
@@ -81,7 +83,7 @@ class REXTrainer(Trainer):
         self.tokens_target = tokens_target
 
         # 4) Add our token‑counter callback
-        self.add_callback(TokenCounterCallback(tokens_target, save_every_tokens))
+        self.add_callback(TokenCounterCallback(tokens_target, max_length, save_every_tokens))
 
         # 5) Prepare KL loss
         self.kl_loss_fn = nn.KLDivLoss(reduction="batchmean")
