@@ -96,7 +96,36 @@ class REXTrainer(Trainer):
         # 5) Prepare KL loss
         self.kl_loss_fn = nn.KLDivLoss(reduction="batchmean")
 
-    
+    def prediction_step(
+        self,
+        model,
+        inputs: dict,
+        prediction_loss_only: bool,
+        ignore_keys=None,
+    ):
+        """
+        This method is called for each batch during evaluation.
+        We pop out the keys our model doesn’t expect and pass them as positional args.
+        """
+        # 1) Prepare inputs
+        inputs = self._prepare_inputs(inputs)
+        labels = inputs.pop("labels")
+        src = inputs.pop("input_ids")
+        tgt = src.clone()  # or inputs.pop("labels"), depending on signature
+        # 3) Do a forward pass
+        with torch.no_grad():
+            logits = model(src, tgt)
+            ce_loss = F.cross_entropy(
+                logits.view(-1, logits.size(-1)),
+                labels.view(-1),
+                reduction="mean"
+            )
+        # 4) If only loss is requested:
+        if prediction_loss_only:
+            return (ce_loss, None, None)
+
+        # 5) Return (loss, logits, labels) as Trainer expects
+        return (ce_loss, logits, labels)
 
     def create_optimizer_and_scheduler(self, num_training_steps: int):
         # Optional: custom optimizer/scheduler
