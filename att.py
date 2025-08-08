@@ -150,6 +150,10 @@ class GroupedQueryAttention(nn.Module):
         k = self.k_proj(key)
         v = self.v_proj(value)
 
+        bq, nq, dq = q.shape
+        bk, nk, dk = k.shape
+        bv, nv, dv = v.shape
+        
         q = q.view(bq, nq, self.query_heads, dq // self.query_heads)
         k = k.view(bk, nk, self.kv_heads, dk // self.kv_heads)
         v = v.view(bv, nv, self.kv_heads, dv // self.kv_heads)
@@ -191,6 +195,7 @@ class GroupedQueryAttention(nn.Module):
         #out = rearrange(out, "b n h d -> b n (h d)")
         out = self.out_proj(out)
         return out
+
 
 
 
