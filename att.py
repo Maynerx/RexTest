@@ -159,7 +159,6 @@ class GroupedQueryAttention(nn.Module):
         #v = rearrange(v, "b n (h d) -> b n h d", h=self.kv_heads)
 
         if self.apply_rotary:
-            q = q.veiw(
             cos_emb, sin_emb = self.generate_sin_cos_pos_emb(nq, device=q.device)
             cos_emb = cos_emb.to(q.device)
             sin_emb = sin_emb.to(q.device)
@@ -192,6 +191,7 @@ class GroupedQueryAttention(nn.Module):
         #out = rearrange(out, "b n h d -> b n (h d)")
         out = self.out_proj(out)
         return out
+
 
 
 
