@@ -52,12 +52,13 @@ class REXTrainer(Trainer):
                  grad_accumulation_steps: int = 1,
                  num_train_epochs: int = 1,
                  logging_steps: int = 1000,
-                 save_strategy: str = "no"
+                 save_strategy: str = "steps"
     ):
         # 1) Build TrainingArguments
         args = TrainingArguments(
             output_dir="./results",
             eval_strategy="steps",
+            eval_steps=logging_steps,
             save_strategy=save_strategy,
             save_steps=save_every_tokens,    # used if save_strategy != "no"
             logging_steps=logging_steps,
@@ -145,4 +146,4 @@ class REXTrainer(Trainer):
 
         loss = self.alpha * ce_loss + self.beta * kl_loss
 
-        return (loss, outputs) if return_outputs else loss
+        return (loss, {"logits": logits, "labels": labels}) if return_outputs else loss
