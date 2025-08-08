@@ -67,7 +67,7 @@ class REXTrainer(Trainer):
             num_train_epochs=num_train_epochs,
             torch_compile=True,                      # Enable compilation
             torch_compile_backend="inductor",        # Choose backend
-            torch_compile_mode="max-autotune",    # Choose compile mode
+            torch_compile_mode="reduce-overhead",    # Choose compile mode
             learning_rate=lr,
             weight_decay=weight_decay,
             fp16=True,
