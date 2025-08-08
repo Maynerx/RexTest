@@ -106,8 +106,18 @@ class GroupedQueryAttention(nn.Module):
         return torch.cat((-x2, x1), dim=-1)
 
     def apply_rotary_pos_emb(self, q, k, cos, sin):
+    # Transpose to [B, H, L, D] for RoPE rotation
+        q = q.permute(0, 2, 1, 3)  # [B, H, L, D]
+        k = k.permute(0, 2, 1, 3)  # [B, H_kv, L, D]
+    
+        # Apply rotary embeddings
         q_embed = (q * cos) + (self.rotate_half(q) * sin)
         k_embed = (k * cos) + (self.rotate_half(k) * sin)
+    
+        # Transpose back to original layout [B, L, H, D]
+        q_embed = q_embed.permute(0, 2, 1, 3)
+        k_embed = k_embed.permute(0, 2, 1, 3)
+    
         return q_embed, k_embed
 
     @torch._dynamo.disable()
@@ -140,10 +150,6 @@ class GroupedQueryAttention(nn.Module):
         k = self.k_proj(key)
         v = self.v_proj(value)
 
-        bq, nq, dq = q.shape
-        bk, nk, dk = k.shape
-        bv, nv, dv = v.shape
-
         q = q.view(bq, nq, self.query_heads, dq // self.query_heads)
         k = k.view(bk, nk, self.kv_heads, dk // self.kv_heads)
         v = v.view(bv, nv, self.kv_heads, dv // self.kv_heads)
@@ -153,16 +159,13 @@ class GroupedQueryAttention(nn.Module):
         #v = rearrange(v, "b n (h d) -> b n h d", h=self.kv_heads)
 
         if self.apply_rotary:
-            freqs_cis = self.freqs_cis.to(query.device)
-            """
-            q = apply_rotary_emb_grouped(q, freqs_cis[:q.size(1)])
-            k = apply_rotary_emb_grouped(k, freqs_cis[:k.size(1)])
-            """
+            q = q.veiw(
             cos_emb, sin_emb = self.generate_sin_cos_pos_emb(nq, device=q.device)
             cos_emb = cos_emb.to(q.device)
             sin_emb = sin_emb.to(q.device)
             q, k = self.apply_rotary_pos_emb(q, k, cos_emb, sin_emb)
             
+        
 
         if self.flash_attention:
             #q = q.permute(0, 2, 1, 3).contiguous()  # (B, Hq, Nq, Dq)
@@ -189,6 +192,7 @@ class GroupedQueryAttention(nn.Module):
         #out = rearrange(out, "b n h d -> b n (h d)")
         out = self.out_proj(out)
         return out
+
 
 
 
