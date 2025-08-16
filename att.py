@@ -6,7 +6,7 @@ from utils import scaled_dot_product_attention_grouped, apply_rotary_emb, precom
 from torch.nn.attention import SDPBackend, sdpa_kernel
 import torch._dynamo
 
-#torch.backends.cuda.enable_flash_sdp(True)
+torch.backends.cuda.enable_flash_sdp(True)
 torch.backends.cuda.enable_mem_efficient_sdp(True)
 
 
@@ -195,6 +195,7 @@ class GroupedQueryAttention(nn.Module):
         #out = rearrange(out, "b n h d -> b n (h d)")
         out = self.out_proj(out)
         return out
+
 
 
 
