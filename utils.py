@@ -142,7 +142,7 @@ def scaled_dot_product_attention_grouped_flash_fix(
     k = k.repeat_interleave(repeat, dim=1)  # (B, hq, Tk, d)
     v = v.repeat_interleave(repeat, dim=1)  # (B, hq, Tv, d)
 
-    with torch.nn.attention.sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
+    with torch.nn.attention.sdpa_kernel([SDPBackend.FLASH_ATTENTION, SDPBackend.EFFICIENT_ATTENTION]):
         out = F.scaled_dot_product_attention(
             query=q,
             key=k,
@@ -239,6 +239,7 @@ class RMSNorm(nn.Module):
 
     def forward(self, x: torch.Tensor):
         return F.rms_norm(x, (self.dim,), self.weight, self.eps)
+
 
 
 
