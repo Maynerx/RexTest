@@ -68,7 +68,7 @@ class REXTrainer(Trainer):
             num_train_epochs=num_train_epochs,
             torch_compile=True,                      # Enable compilation
             torch_compile_backend="inductor",        # Choose backend
-            torch_compile_mode="max-autotune-no-cudagraphs",    # Choose compile mode
+            torch_compile_mode="default",    # Choose compile mode
             learning_rate=lr,
             weight_decay=weight_decay,
             fp16=True,
@@ -158,19 +158,16 @@ class REXTrainer(Trainer):
             reduction="mean"
         )
 
-        # Reconstruct teacher probs
-        teacher_probs = torch.zeros_like(logits)
-        teacher_probs.scatter_(
-            dim=-1,
-            index=top_k_indices,
-            src=top_k_probs
-        )
+        model_topk_logits = logits.gather(-1, top_k_indices)  # [B, S, k]
 
-        # KL divergence
-        log_probs = F.log_softmax(logits / self.temperature, dim=-1)
-        kl_loss = self.kl_loss_fn(
-            log_probs,
-            teacher_probs / self.temperature
+        # Compute log softmax over top-k
+        log_probs_topk = F.log_softmax(model_topk_logits / self.temperature, dim=-1)  # [B, S, k]
+        
+        # KL divergence only over top-k
+        kl_loss = F.kl_div(
+            log_probs_topk,
+            top_k_probs / self.temperature,  # teacher top-k probs
+            reduction="batchmean"
         ) * (self.temperature ** 2)
 
         loss = self.alpha * ce_loss + self.beta * kl_loss
